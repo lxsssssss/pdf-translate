@@ -1,0 +1,9 @@
+﻿# Windsurf Rules for PDF-Translate Skill
+# High-fidelity vector PDF translation, layout preservation, and automated audit.
+
+# Execution Workflow:
+1. Document Structure Inspection via PyMuPDF (fitz)
+2. Two-stage schema extraction (extract clause numbers, parameters, table dictionaries)
+3. HTML5 + CSS @page vector reconstruction (max-height: 270mm, overflow: hidden)
+4. Playwright headless render with JS overflow check (scripts/render_pdf.py)
+5. Mandatory page-by-page audit with scripts/audit_pdf.py

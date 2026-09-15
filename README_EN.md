@@ -1,4 +1,4 @@
-﻿<p align="center">
+<p align="center">
   <a href="README.md">简体中文</a> | <b>English</b>
 </p>
 
@@ -12,6 +12,14 @@
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/)
 [![Playwright](https://img.shields.io/badge/Playwright-Vector%20PDF-green.svg)](https://playwright.dev/)
 [![PyMuPDF](https://img.shields.io/badge/PyMuPDF-Audit%20Engine-orange.svg)](https://pymupdf.readthedocs.io/)
+
+[![Compatible with Antigravity](https://img.shields.io/badge/Google-Antigravity-4285F4?logo=google&logoColor=white)](https://antigravity.google)
+[![Compatible with Claude Code](https://img.shields.io/badge/Claude-Code-D97706?logo=anthropic&logoColor=white)](https://claude.ai)
+[![Compatible with Cursor](https://img.shields.io/badge/Cursor-Rules-000000?logo=cursor&logoColor=white)](https://cursor.com)
+[![Compatible with Windsurf](https://img.shields.io/badge/Windsurf-Cascade-0EA5E9?logo=windsurf&logoColor=white)](https://codeium.com/windsurf)
+[![Compatible with Codex](https://img.shields.io/badge/OpenAI-Codex-10A37F?logo=openai&logoColor=white)](https://openai.com)
+[![Compatible with WorkBuddy](https://img.shields.io/badge/WorkBuddy-Agent-6366F1)](https://github.com/lxsssssss/pdf-translate)
+[![Compatible with DeepSeek](https://img.shields.io/badge/DeepSeek-V3%20%2F%20R1-4F46E5)](https://deepseek.com)
 
 ---
 
@@ -162,9 +170,25 @@ python scripts/audit_pdf.py --src original.pdf --tgt translated.pdf --json-out a
 
 ---
 
-## 🤖 Agent Integration (Antigravity / Claude / Cursor)
+## 🌐 Multi-Platform AI Agent Ecosystem
 
-### Google Antigravity
+This project is architected as an **agnostic, zero-friction universal skill**, natively compatible across leading AI coding assistants and autonomous agent runtimes:
+
+| Platform / Agent | Configuration Path / Format | Key Capabilities |
+| :--- | :--- | :--- |
+| **Google Antigravity** | `.agent/skills/pdf-translate/` | Native Skill auto-discovery, 5-step SOP execution |
+| **Claude Code** | `.claude/skills/pdf-translate/` or custom prompt | Strict adherence to `SKILL_EN.md` schema contracts |
+| **Cursor** | `.cursorrules` or `.cursor/rules/` | Bounded `@page` print styles & vector generation |
+| **Windsurf (Cascade)** | `.windsurfrules` | Automated invocation of `render_pdf.py` & self-healing |
+| **OpenAI Codex** | Custom Instructions / Action | Two-stage schema extraction & template filling |
+| **WorkBuddy** | Agent Workflow / Skill Center plugin | 1:1 Tender & contract translation workflows |
+| **DeepSeek (V3 / R1)** | System Prompt injection | Deep reasoning clause tree extraction with zero hallucination |
+
+---
+
+### 💻 Quick Integration Guides
+
+#### 1. Google Antigravity
 Place this skill inside your workspace under `.agent/skills/pdf-translate`:
 ```text
 your-project/
@@ -175,9 +199,19 @@ your-project/
             ├── SKILL_EN.md
             └── scripts/
 ```
-Whenever you prompt your Agent with:  
-> *"Translate this bidding document to Chinese, strictly preserving original layout and outputting as vector PDF"*,  
-the Agent automatically invokes this skill and follows the 5-step SOP.
+Prompt: *"Translate this bidding document to Chinese, strictly preserving original layout and outputting as vector PDF."*
+
+#### 2. Claude Code
+Register `SKILL_EN.md` directly into your Claude project rules or custom tools:
+```bash
+claude config add-skill pdf-translate ./SKILL_EN.md
+```
+
+#### 3. Cursor & Windsurf
+This repository includes ready-to-use [`.cursorrules`](.cursorrules) and [`.windsurfrules`](.windsurfrules) in the root directory. Opening this project in Cursor or Windsurf automatically activates these rules.
+
+#### 4. DeepSeek / OpenAI Codex / WorkBuddy
+Inject the core rules from `SKILL_EN.md` into your agent's System Prompt, granting Python terminal execution permissions for `scripts/render_pdf.py` and `scripts/audit_pdf.py`.
 
 ---
 

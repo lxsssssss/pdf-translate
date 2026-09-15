@@ -13,6 +13,14 @@
 [![Playwright](https://img.shields.io/badge/Playwright-Vector%20PDF-green.svg)](https://playwright.dev/)
 [![PyMuPDF](https://img.shields.io/badge/PyMuPDF-Audit%20Engine-orange.svg)](https://pymupdf.readthedocs.io/)
 
+[![Compatible with Antigravity](https://img.shields.io/badge/Google-Antigravity-4285F4?logo=google&logoColor=white)](https://antigravity.google)
+[![Compatible with Claude Code](https://img.shields.io/badge/Claude-Code-D97706?logo=anthropic&logoColor=white)](https://claude.ai)
+[![Compatible with Cursor](https://img.shields.io/badge/Cursor-Rules-000000?logo=cursor&logoColor=white)](https://cursor.com)
+[![Compatible with Windsurf](https://img.shields.io/badge/Windsurf-Cascade-0EA5E9?logo=windsurf&logoColor=white)](https://codeium.com/windsurf)
+[![Compatible with Codex](https://img.shields.io/badge/OpenAI-Codex-10A37F?logo=openai&logoColor=white)](https://openai.com)
+[![Compatible with WorkBuddy](https://img.shields.io/badge/WorkBuddy-Agent-6366F1)](https://github.com/lxsssssss/pdf-translate)
+[![Compatible with DeepSeek](https://img.shields.io/badge/DeepSeek-V3%20%2F%20R1-4F46E5)](https://deepseek.com)
+
 ---
 
 ## 📸 效果对比展示 (Before & After Showcase)
@@ -160,9 +168,25 @@ python scripts/audit_pdf.py --src original.pdf --tgt translated.pdf --json-out a
 
 ---
 
-## 🤖 在 AI Agent (Antigravity / Claude / Cursor) 中集成
+## 🌐 多平台 AI 助手原生兼容 (Multi-Platform Ecosystem)
 
-### Google Antigravity
+本项目设计为**跨平台、零依赖摩擦的通用 Agent 技能**，原生兼容目前主流 AI 编程助手与大模型智能体环境：
+
+| 平台 / 工具 | 部署路径 / 形式 | 核心支持说明 |
+| :--- | :--- | :--- |
+| **Google Antigravity** | `.agent/skills/pdf-translate/` | 原生 Skill 识别，自动探测与 5 步 SOP 闭环 |
+| **Claude Code** | `.claude/skills/pdf-translate/` 或全局规则 | 遵循 `SKILL_EN.md` 规则与两阶段零幻觉契约 |
+| **Cursor** | `.cursorrules` 或 `.cursor/rules/` | 代码生成严格遵循 `@page` 限高与纯矢量布局 |
+| **Windsurf (Cascade)** | `.windsurfrules` | 自动化调用 `render_pdf.py` 与 `audit_pdf.py` 自愈 |
+| **OpenAI Codex** | Custom Instructions / Action | 结构化数据提取 + 模板化填充双阶段工作流 |
+| **WorkBuddy** | 智能体工作流 / 技能中心插件 | 商务公文、外贸标书 1:1 翻译自动化作业 |
+| **DeepSeek (V3 / R1)** | 系统提示词 (System Prompt) | 深度推理提取条款树，严禁虚构与脑补条款 |
+
+---
+
+### 💻 各平台快速接入指南
+
+#### 1. Google Antigravity
 直接将本项目拷贝至工作区的 `.agent/skills/pdf-translate` 目录下：
 ```text
 your-project/
@@ -170,9 +194,22 @@ your-project/
     └── skills/
         └── pdf-translate/
             ├── SKILL.md
+            ├── SKILL_EN.md
             └── scripts/
 ```
-当你在会话中提出类似 **“帮我把这份招标文件翻译为中文，必须保持原排版并输出为 PDF”** 时，Agent 将自动激活该 Skill 并遵循 SOP 闭环执行。
+在会话中提示 **“帮我把这份文件翻译为中文，保持原排版并输出为 PDF”**，Agent 将自动激活该 Skill 并执行闭环工作流。
+
+#### 2. Claude Code
+将 `SKILL_EN.md` 导入 Claude 项目自定义指令或配置为专属技能：
+```bash
+claude config add-skill pdf-translate ./SKILL_EN.md
+```
+
+#### 3. Cursor & Windsurf
+本项目根目录已内置配置好的 [`.cursorrules`](.cursorrules) 与 [`.windsurfrules`](.windsurfrules)，直接打开本项目所在目录即可自动生效；或将规则内容直接复制进你现有工程的全局规则中。
+
+#### 4. DeepSeek / OpenAI Codex / WorkBuddy
+将 `SKILL.md`（或 `SKILL_EN.md`）核心铁律与 SOP 粘贴为 Agent 系统的 System Prompt，并开放 Python 终端权限以供调用 `scripts/render_pdf.py` 与 `scripts/audit_pdf.py`。
 
 ---
 
