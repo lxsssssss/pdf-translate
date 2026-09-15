@@ -1,8 +1,13 @@
+<p align="center">
+  <b>简体中文</b> | <a href="README_EN.md">English</a>
+</p>
+
 # 📄 PDF-Translate Skill
 
 > **High-Fidelity Vector PDF Translation, Layout Reconstruction & Automated Audit Engine for AI Agents.**  
 > 基于大语言模型直译、矢量排版重构、浏览器溢出探针与自动化双向对比自愈的高保真 PDF 翻译技能。
 
+[![CI](https://github.com/lxsssssss/pdf-translate/actions/workflows/ci.yml/badge.svg)](https://github.com/lxsssssss/pdf-translate/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/)
 [![Playwright](https://img.shields.io/badge/Playwright-Vector%20PDF-green.svg)](https://playwright.dev/)
@@ -76,12 +81,19 @@ flowchart TD
 
 ```text
 pdf-translate/
+├── .github/
+│   ├── workflows/ci.yml     # 自动化 CI 测试工作流
+│   └── ISSUE_TEMPLATE/      # 社区 Bug 与 Feature 规范模板
 ├── SKILL.md                 # Antigravity / AI Agent 核心技能指令与约束规范 (中文版)
 ├── SKILL_EN.md              # Core Skill Definition & Zero-Hallucination SOP (English Version)
 ├── requirements.txt         # 核心 Python 依赖项
 ├── LICENSE                  # MIT 开源协议
-├── README.md                # 项目详细说明文档
+├── README.md                # 简体中文说明文档
+├── README_EN.md             # English Documentation
 ├── assets/                  # 官方公文 1:1 真实案例对比图
+├── examples/                # 开箱即测示例与一键体验脚本
+│   ├── sample_doc.html      # 包含双语公文表头、表格与签章的标准 A4 测试模板
+│   └── quick_demo.py        # 一键端到端「Playwright 渲染 + 自动化审计」测试脚本
 └── scripts/
     ├── audit_pdf.py         # 1:1 页对页结构、条款双向 Diff 与敏感词自动化审计引擎
     └── render_pdf.py        # 基于 Playwright 的高保真矢量 PDF 渲染脚本 (内置 JS 溢出探针)
@@ -105,7 +117,19 @@ playwright install chromium
 
 ---
 
-### 2. 命令行工具使用指南
+### 2. 运行一键开箱即测 Demo
+
+无需准备任何复杂环境，直接运行项目内置的端到端体验脚本：
+
+```bash
+python examples/quick_demo.py
+```
+
+终端将依次执行：调用 Playwright 渲染矢量 PDF ➔ 触发 JS 页面高度防溢出探针 ➔ 执行 PyMuPDF 纯矢量层与条款一致性审计 ➔ 输出绿标 PASS 报告！
+
+---
+
+### 3. 命令行工具使用指南
 
 #### 🔹 矢量 PDF 渲染 (`render_pdf.py`)
 
