@@ -1,0 +1,28 @@
+﻿# Python cache & artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+
+# Virtual Environments
+venv/
+.venv/
+ENV/
+env/
+
+# Intermediate files & audit outputs
+output/
+temp/
+tmp/
+*.tmp
+*.log
+audit_report.json
+
+# Operating System & IDEs
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.bak
