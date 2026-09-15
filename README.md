@@ -60,14 +60,14 @@
 
 ```mermaid
 flowchart TD
-    A[原始 PDF 文档] --> B[步骤 1: PyMuPDF 结构探测与分块规划]
-    B --> C[步骤 2: 两阶段数据契约抽取与严谨直译]
-    C --> D[步骤 3: 现代化 HTML5 + CSS @page 矢量重构]
-    D --> E[步骤 4: Playwright 无头渲染 + JS 溢出探针 (render_pdf.py)]
-    E --> F[生成目标矢量 PDF]
-    F --> G[步骤 5: audit_pdf.py 自动化审计对比]
-    G -->|未通过: 发现溢出/遗漏/编号不符| D
-    G -->|通过: 1:1 完美匹配 & 0 报错| H[正式交付发布]
+    A["原始 PDF 文档"] --> B["步骤 1: PyMuPDF 结构探测与分块规划"]
+    B --> C["步骤 2: 两阶段数据契约抽取与严谨直译"]
+    C --> D["步骤 3: 现代化 HTML5 + CSS @page 矢量重构"]
+    D --> E["步骤 4: Playwright 无头渲染 + JS 溢出探针 (render_pdf.py)"]
+    E --> F["生成目标矢量 PDF"]
+    F --> G["步骤 5: audit_pdf.py 自动化审计对比"]
+    G -->|"未通过: 发现溢出 / 遗漏 / 编号不符"| D
+    G -->|"通过: 1:1 完美匹配 且 0 报错"| H["正式交付发布"]
 ```
 
 ---
@@ -76,10 +76,12 @@ flowchart TD
 
 ```text
 pdf-translate/
-├── SKILL.md                 # Antigravity / AI Agent 核心技能指令与约束规范
+├── SKILL.md                 # Antigravity / AI Agent 核心技能指令与约束规范 (中文版)
+├── SKILL_EN.md              # Core Skill Definition & Zero-Hallucination SOP (English Version)
 ├── requirements.txt         # 核心 Python 依赖项
 ├── LICENSE                  # MIT 开源协议
 ├── README.md                # 项目详细说明文档
+├── assets/                  # 官方公文 1:1 真实案例对比图
 └── scripts/
     ├── audit_pdf.py         # 1:1 页对页结构、条款双向 Diff 与敏感词自动化审计引擎
     └── render_pdf.py        # 基于 Playwright 的高保真矢量 PDF 渲染脚本 (内置 JS 溢出探针)
