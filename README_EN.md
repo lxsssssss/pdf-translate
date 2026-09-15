@@ -25,13 +25,11 @@
 
 ## 📸 Before & After Showcase
 
-> **Real-World Case Study**: Official Procurement & Prequalification Booklet for Water Engineering (Middle East MEWRE official government tender), featuring multilingual dual-column letterhead, precision dotted leaders, and legal clauses.
+> **Real-World Case Study**: The landmark foundation paper of modern deep learning, *Attention Is All You Need* (arXiv:1706.03762), featuring multi-author affiliation grids, precision margin watermark alignment, dual-column abstract, mathematical footnotes, and strict height overflow protection.
 
-### 1. Cover & Official Letterhead (1:1 Reconstruction)
+### Academic Paper Cover & Dual-Column Layout (1:1 Reconstruction)
 ![Cover Comparison](assets/comparison_cover.png)
 
-### 2. Table of Contents with Dotted Leaders (Pixel-Perfect Alignment)
-![TOC Comparison](assets/comparison_toc.png)
 
 ---
 

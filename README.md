@@ -25,13 +25,11 @@
 
 ## 📸 效果对比展示 (Before & After Showcase)
 
-> **实测案例**：某国官方供水工程《国际制造商资质预审要求与条件手册》（MEWRE 官方公文标书），包含多语言双栏表头、目录点线对齐及严肃条款。
+> **实测案例**：现代深度学习与大模型开山之作《Attention Is All You Need》（arXiv:1706.03762），包含多作者机构矩阵、精准边栏学术水印、双栏摘要、数学脚注及严格版面限高。
 
-### 1. 封面与公文表头 1:1 还原 (Cover & Official Header)
+### 顶会学术论文封面与双栏排版 1:1 还原 (Paper Cover & Dual-Column Layout)
 ![Cover Comparison](assets/comparison_cover.png)
 
-### 2. 复杂目录点线对齐与多语对照 (Table of Contents & Dotted Leaders)
-![TOC Comparison](assets/comparison_toc.png)
 
 ---
 
