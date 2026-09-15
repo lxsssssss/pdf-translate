@@ -1,4 +1,4 @@
-﻿# 📄 PDF-Translate Skill
+# 📄 PDF-Translate Skill
 
 > **High-Fidelity Vector PDF Translation, Layout Reconstruction & Automated Audit Engine for AI Agents.**  
 > 基于大语言模型直译、矢量排版重构、浏览器溢出探针与自动化双向对比自愈的高保真 PDF 翻译技能。
@@ -80,7 +80,7 @@ pdf-translate/
 ### 1. 安装依赖
 
 ```bash
-git clone https://github.com/your-username/pdf-translate.git
+git clone https://github.com/lxsssssss/pdf-translate.git
 cd pdf-translate
 
 pip install -r requirements.txt
