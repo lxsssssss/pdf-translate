@@ -10,6 +10,18 @@
 
 ---
 
+## 📸 效果对比展示 (Before & After Showcase)
+
+> **实测案例**：某国官方供水工程《国际制造商资质预审要求与条件手册》（MEWRE 官方公文标书），包含多语言双栏表头、目录点线对齐及严肃条款。
+
+### 1. 封面与公文表头 1:1 还原 (Cover & Official Header)
+![Cover Comparison](assets/comparison_cover.png)
+
+### 2. 复杂目录点线对齐与多语对照 (Table of Contents & Dotted Leaders)
+![TOC Comparison](assets/comparison_toc.png)
+
+---
+
 ## 🌟 核心痛点与解决方案 (Why PDF-Translate?)
 
 传统的文档翻译工具（如通用机翻、常规 OCR 导出）在面对**工程标书、跨国商务合同、法定资质证书、学术白皮书**等严肃公文时，常常面临四大致命难题：
