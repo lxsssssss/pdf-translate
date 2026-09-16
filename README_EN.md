@@ -27,9 +27,11 @@
 
 > **Real-World Case Study**: The landmark foundation paper of modern deep learning, *Attention Is All You Need* (arXiv:1706.03762), featuring multi-author affiliation grids, precision margin watermark alignment, dual-column abstract, mathematical footnotes, and strict height overflow protection.
 
-### Academic Paper Cover & Dual-Column Layout (1:1 Reconstruction)
+### 1. Academic Paper Cover & Dual-Column Layout (1:1 Reconstruction)
 ![Cover Comparison](assets/comparison_cover.png)
 
+### 2. Complex Model Architecture & Physical Anchor Alignment (1:1 Figure 1 Reconstruction)
+![Page 3 Architecture Comparison](assets/comparison_page_03.png)
 
 ---
 

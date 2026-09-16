@@ -27,9 +27,11 @@
 
 > **实测案例**：现代深度学习与大模型开山之作《Attention Is All You Need》（arXiv:1706.03762），包含多作者机构矩阵、精准边栏学术水印、双栏摘要、数学脚注及严格版面限高。
 
-### 顶会学术论文封面与双栏排版 1:1 还原 (Paper Cover & Dual-Column Layout)
+### 1. 顶会学术论文封面与双栏排版 1:1 还原 (Paper Cover & Dual-Column Layout)
 ![Cover Comparison](assets/comparison_cover.png)
 
+### 2. 复杂模型架构图与物理点位 1:1 精准锚定 (Figure 1 Architecture & Physical Anchors)
+![Page 3 Architecture Comparison](assets/comparison_page_03.png)
 
 ---
 
