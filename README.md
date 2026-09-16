@@ -213,6 +213,18 @@ claude config add-skill pdf-translate ./SKILL_EN.md
 
 ---
 
+## 📈 Star History
+
+<a href="https://star-history.com/#lxsssssss/pdf-translate&Date">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=lxsssssss/pdf-translate&type=Date&theme=dark" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=lxsssssss/pdf-translate&type=Date" />
+   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=lxsssssss/pdf-translate&type=Date" />
+ </picture>
+</a>
+
+---
+
 ## 📄 开源许可证 (License)
 
 本项目采用 [MIT 许可证](LICENSE)。
