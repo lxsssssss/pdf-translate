@@ -11,7 +11,7 @@
 ```markdown
 ---
 description: "Cursor rules for 1:1 layout-preserving vector PDF translation, anti-overflow CSS typography checks, and automated page difference audits."
-globs: **/*.py,**/*.html,**/*.pdf,**/.cursorrules,**/SKILL.md
+globs: **/*pdf*/**,**/*translate*/**,**/*.pdf,**/.cursorrules,**/SKILL*.md
 alwaysApply: false
 ---
 # PDF Translate — Layout-Preserving Translation & Visual Audit Rules
@@ -24,7 +24,8 @@ Source repo: https://github.com/lxsssssss/pdf-translate
 
 1. **Strict 1:1 Page-to-Page Layout Preservation**:
    - Translate modularly page-by-page. Never merge pages or allow content to shift page boundaries.
-   - Use CSS `@page { size: A4; margin: 0; }` with explicit pixel/millimeter height bounds.
+   - Measure each source page's dimensions and preserve them dynamically in CSS `@page { size: <width> <height>; margin: 0; }` (apply standard A4 only when the source document is A4).
+   - Enforce explicit pixel/millimeter height bounds per page container to prevent vertical overflow.
 
 2. **Two-Stage Architecture (Layout First, Content Second)**:
    - Stage 1: Parse structure, extract text tokens, bounding boxes, styles, and background vector assets.
@@ -39,8 +40,8 @@ Source repo: https://github.com/lxsssssss/pdf-translate
    - Mark ambiguous domain terms in an audit log rather than guessing.
 
 5. **Automated Visual Difference Auditing**:
-   - Run page-by-page visual audits comparing original vs translated vector renderings using `audit_pdf.py`.
-   - Any pixel discrepancy beyond standard font expansion triggers layout reflow review.
+   - Run page-by-page visual audits with `python scripts/audit_pdf.py --src original.pdf --tgt translated.pdf`.
+   - Compare original vs translated vector renderings; any visual discrepancy beyond expected language expansion triggers layout reflow review.
 ```
 
 ---
