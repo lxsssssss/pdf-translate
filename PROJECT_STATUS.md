@@ -1,4 +1,4 @@
-﻿# 项目状态与跨会话备忘录 (Project Handover Memo)
+# 项目状态与跨会话备忘录 (Project Handover Memo)
 
 - **主项目**: [pdf-translate](https://github.com/lxsssssss/pdf-translate) (已发布 v1.0.0 Release)
 - **本地路径**: `E:\antigravity_workspace\pdf-translate`
@@ -20,7 +20,7 @@
 
 3. **`PatrickJS/awesome-cursorrules` (23k+ Stars)**
    - **PR**: [#378](https://github.com/PatrickJS/awesome-cursorrules/pull/378)
-   - **状态**: ✅ 5项 CI 检查全绿，通过 CodeRabbit AI 自动化代码审计。
+   - **状态**: ✅ 7项 CI 检查全绿；CodeRabbit 提出的 3 条细节优化建议已在 commit `3a332ea` 中 100% 解决并获系统自动标记 "Addressed"，等待合并。
 
 ---
 
