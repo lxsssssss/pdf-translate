@@ -219,9 +219,9 @@ Inject the core rules from `SKILL_EN.md` into your agent's System Prompt, granti
 
 <a href="https://star-history.com/#lxsssssss/pdf-translate&Date">
  <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=lxsssssss/pdf-translate&type=Date&theme=dark" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=lxsssssss/pdf-translate&type=Date" />
-   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=lxsssssss/pdf-translate&type=Date" />
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=lxsssssss/pdf-translate&type=Date&theme=dark&_v=33" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=lxsssssss/pdf-translate&type=Date&_v=33" />
+   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=lxsssssss/pdf-translate&type=Date&_v=33" />
  </picture>
 </a>
 
