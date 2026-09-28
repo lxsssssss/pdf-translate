@@ -9,9 +9,9 @@
 ## 1. 三大顶流 Awesome 榜单收录状态 (最新跟踪)
 
 1. **`Shubhamsaboo/awesome-llm-apps` (25k+ Stars)**
-   - **原 PR**: [#1180](https://github.com/Shubhamsaboo/awesome-llm-apps/pull/1180)
-   - **状态**: ⚠️ `Closed`（上游维护者 Shubham Saboo 于 9-21 合并 PR #1195 进行架构大改，统一推行 `agent_skills/` 规范与 `agentskills.io` 注册表，并批量清理关闭了一批旧路径提交）。可按其最新 `agent_skills/` 标准重新发起提交。
-   - **本地分支**: `E:\antigravity_workspace\awesome-llm-apps` (`feature/layout-preserving-pdf-translator`)
+   - **全新 PR**: [#1208](https://github.com/Shubhamsaboo/awesome-llm-apps/pull/1208) (`feat(agent_skills): add pdf-translate layout-preserving translation skill`)
+   - **状态**: ✅ `Open` | `Mergeable: True` | GitGuardian 安全扫描全绿通过，零代码冲突。按最新 `agent_skills/` 规范构建并 100% 通过官方全套 Eval & Lint。
+   - **本地分支**: `E:\antigravity_workspace\awesome-llm-apps` (`skill/pdf-translate`)
 
 2. **`e2b-dev/awesome-ai-agents` (17k+ Stars)**
    - **PR**: [#1575](https://github.com/e2b-dev/awesome-ai-agents/pull/1575)
