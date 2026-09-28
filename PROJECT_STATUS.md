@@ -1,26 +1,25 @@
 # 项目状态与跨会话备忘录 (Project Handover Memo)
 
-- **主项目**: [pdf-translate](https://github.com/lxsssssss/pdf-translate) (已发布 v1.0.0 Release，⭐ **33 Stars**，持续自然增长)
+- **主项目**: [pdf-translate](https://github.com/lxsssssss/pdf-translate) (已发布 v1.0.0 Release，⭐ **101 Stars**，突破百星里程碑！)
 - **本地路径**: `E:\antigravity_workspace\pdf-translate`
 - **关联上一个长会话**: [查看前置会话记录](conversation://8dd4f406-83ea-412d-bbbe-f93959f7bbe7) (ID: `8dd4f406-83ea-412d-bbbe-f93959f7bbe7`)
 
 ---
 
-## 1. 三大顶流 Awesome 榜单收录状态 (持续全绿待合并)
+## 1. 三大顶流 Awesome 榜单收录状态 (最新跟踪)
 
 1. **`Shubhamsaboo/awesome-llm-apps` (25k+ Stars)**
-   - **PR**: [#1180](https://github.com/Shubhamsaboo/awesome-llm-apps/pull/1180)
-   - **入驻类型**: 独立可运行 Agent 教程应用 (`advanced_ai_agents/single_agent_apps/ai_pdf_translator_agent/`)
-   - **状态**: ✅ `Open` | `Mergeable: True` | `State: Clean`。GitGuardian 安全检查通过，零代码冲突，完全符合独立教程规范，排队等待合并。
+   - **原 PR**: [#1180](https://github.com/Shubhamsaboo/awesome-llm-apps/pull/1180)
+   - **状态**: ⚠️ `Closed`（上游维护者 Shubham Saboo 于 9-21 合并 PR #1195 进行架构大改，统一推行 `agent_skills/` 规范与 `agentskills.io` 注册表，并批量清理关闭了一批旧路径提交）。可按其最新 `agent_skills/` 标准重新发起提交。
    - **本地分支**: `E:\antigravity_workspace\awesome-llm-apps` (`feature/layout-preserving-pdf-translator`)
 
 2. **`e2b-dev/awesome-ai-agents` (17k+ Stars)**
    - **PR**: [#1575](https://github.com/e2b-dev/awesome-ai-agents/pull/1575)
-   - **状态**: ✅ `Open` | `Mergeable: True` | `State: Clean`。CLA 已签，CI 自动化检查全部通过，排队等待官方批量合并。
+   - **状态**: ✅ `Open` | `Mergeable: True` | `State: Clean`。CLA 已签，CI 自动化检查全部通过，持续排队等待官方批量合并。
 
 3. **`PatrickJS/awesome-cursorrules` (23k+ Stars)**
    - **PR**: [#378](https://github.com/PatrickJS/awesome-cursorrules/pull/378)
-   - **状态**: ✅ `Open` | `Mergeable: True`。5 项核心 CI 检查全绿通过，CodeRabbit 提出的 3 条细节优化均已在 commit `3a332ea` 解决，等待维护者点击合并。
+   - **状态**: ✅ `Open` | `Mergeable: True`。5 项核心 CI 检查全绿通过，CodeRabbit 细节建议已全解决，排队等待维护者合并。
 
 ---
 
