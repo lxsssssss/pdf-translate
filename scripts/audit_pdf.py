@@ -75,7 +75,7 @@ _CLAUSE_CORE = r"\d{1,3}(?:\.[1-9]\d?)+"
 # multi-level (>= 3 components) anywhere in text
 _CLAUSE_MULTI_RE = re.compile(r"(?<![\d.])(\d{1,3}(?:\.[1-9]\d?){2,})(?![\d]|\.\d)")
 # two-level only when it starts a line (heading / list item / table first cell)
-_CLAUSE_HEAD_RE = re.compile(r"^\s*[\(（]?(" + _CLAUSE_CORE + r")[\)）]?\.?(?=\s|$|[^\d.])", re.MULTILINE)
+_CLAUSE_HEAD_RE = re.compile(r"^\s*[\(（]?(" + _CLAUSE_CORE + r")[\)）]?\.?(?=\s|[-–—:：]|$)", re.MULTILINE)
 
 
 def extract_clauses(text: str):
@@ -130,13 +130,13 @@ def _norm_ref_id(raw: str):
 _SEP = r"\s*[-–—.:：]?\s*"
 _ID = r"[\(（]?\s*(\d{1,3}|[A-Za-z](?![A-Za-z])|[一二三四五六七八九十]{1,3})\s*[\)）]?"
 _REF_PATTERNS = [
-    ("sec", re.compile(r"\b(?:section|chapter|part)" + _SEP + _ID, re.IGNORECASE)),
-    ("sec", re.compile(r"第\s*(\d{1,3}|[一二三四五六七八九十]{1,3})\s*(?:部分|章|节)")),
-    ("app", re.compile(r"\b(?:appendix|annex(?:ure)?)" + _SEP + _ID, re.IGNORECASE)),
+    ("sec", re.compile(r"(?<![A-Za-z])(?:section|chapter|part)" + _SEP + _ID, re.IGNORECASE)),
+    ("sec", re.compile(r"第\s*[\(（]?\s*(\d{1,3}|[一二三四五六七八九十]{1,3})\s*[\)）]?\s*(?:部分|章|节)")),
+    ("app", re.compile(r"(?<![A-Za-z])(?:appendix|annex(?:ure)?)" + _SEP + _ID, re.IGNORECASE)),
     ("app", re.compile(r"(?:附录|附件|附表)" + _SEP + _ID)),
-    ("tab", re.compile(r"\b(?:table|tab\.)" + _SEP + r"(\d{1,3}|[A-Z](?![A-Za-z]))", re.IGNORECASE)),
+    ("tab", re.compile(r"(?<![A-Za-z])(?:table|tab\.)" + _SEP + r"(\d{1,3}|[A-Z](?![A-Za-z]))", re.IGNORECASE)),
     ("tab", re.compile(r"表" + _SEP + r"(\d{1,3}|[A-Z](?![A-Za-z]))")),
-    ("fig", re.compile(r"\b(?:figure|fig\.)" + _SEP + r"(\d{1,3})", re.IGNORECASE)),
+    ("fig", re.compile(r"(?<![A-Za-z])(?:figure|fig\.)" + _SEP + r"(\d{1,3})", re.IGNORECASE)),
     ("fig", re.compile(r"图" + _SEP + r"(\d{1,3})")),
 ]
 
@@ -176,7 +176,7 @@ def _normalise_number(tok: str):
 
 def extract_numbers(text: str, min_digits: int = 2):
     """Return set of normalised numbers with at least `min_digits` digits (or any decimal)."""
-    text = _CLAUSE_TOKEN_RE.sub(" ", text)
+    text = _CLAUSE_HEAD_RE.sub(" ", _CLAUSE_TOKEN_RE.sub(" ", text))
     nums = set()
     for m in _NUM_RE.finditer(text):
         tok = m.group(1)
@@ -192,6 +192,26 @@ def extract_numbers(text: str, min_digits: int = 2):
 # --------------------------------------------------------------------------- #
 # Page helpers
 # --------------------------------------------------------------------------- #
+
+def _visible_text(page) -> str:
+    """Extract page text excluding blocks completely covered by opaque white-filled rectangles."""
+    white_rects = [
+        d["rect"] for d in page.get_drawings()
+        if d.get("fill") == (1.0, 1.0, 1.0) and d.get("fill_opacity", 1.0) >= 0.95
+        and d["rect"].width < page.rect.width * 0.95
+    ]
+    if not white_rects:
+        return page.get_text().strip()
+    kept = []
+    for b in page.get_text("blocks"):
+        if b[6] != 0 or not b[4].strip():
+            continue
+        br = fitz.Rect(b[:4])
+        if any(wr.contains(br) for wr in white_rects):
+            continue
+        kept.append(b[4])
+    return "\n".join(kept).strip()
+
 
 def _image_rects(page):
     rects = []
@@ -341,8 +361,8 @@ def audit_document(src_path: str, tgt_path: str, strict: bool = False, json_out:
                 add(CRITICAL, "Missing page present in source document")
             else:
                 sp, tp = doc_src[idx], doc_tgt[idx]
-                src_text = sp.get_text().strip()
-                tgt_text = tp.get_text().strip()
+                src_text = _visible_text(sp)
+                tgt_text = _visible_text(tp)
 
                 # page size
                 dw, dh = abs(sp.rect.width - tp.rect.width), abs(sp.rect.height - tp.rect.height)
