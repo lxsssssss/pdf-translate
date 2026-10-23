@@ -1,4 +1,4 @@
-﻿# Python cache & artifacts
+# Python cache & artifacts
 __pycache__/
 *.py[cod]
 *$py.class
@@ -26,3 +26,13 @@ Thumbs.db
 .vscode/
 *.swp
 *.bak
+
+# Local-only work records (kept on disk, not tracked)
+PROJECT_STATUS.md
+awesome_submissions/
+
+# Demo / test outputs
+examples/output/
+tests/_out/
+compare_png/
+
