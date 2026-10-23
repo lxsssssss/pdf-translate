@@ -1,7 +1,7 @@
 ---
 name: pdf-translate
 description: "Use when translating PDF documents between languages while strictly preserving original layout, formatting, typography, tables, and signatures. Powered by LLM direct comprehension, two-stage data-contract translation, chunked modular generation, in-browser JS overflow detection, and high-fidelity vector PDF reconstruction. Features zero-hallucination guardrails and automated 1:1 page-by-page audit script (audit_pdf.py)."
-version: 2.3.0
+version: 2.4.0
 author: Antigravity
 ---
 
@@ -25,7 +25,7 @@ author: Antigravity
 >    - **数据与排版分离**：长文档翻译时，优先提取页面结构化数据（条款清单、参数字典、表格行列），再灌入标准化 HTML 模板，严禁一边长篇自由发挥一边写标签；
 >    - **单批次生成严禁超过 10 页**：超过 10 页的文档强制按 10 页为单位拆分为独立模块（如 `part1_pages.py`, `part2_pages.py`），避免模型在中后段注意力衰减导致失控。
 > 4. **生成后对比质检与用户确认关卡 (Mandatory Audit & User Preview Before Commit)**：
->    - PDF 渲染生成后，**绝不允许直接交付给用户**，必须运行技能内置的 `scripts/audit_pdf.py` 执行页码、矢量层、条款差集与敏感词全面扫描；
+>    - PDF 渲染生成后，**绝不允许直接交付给用户**，必须运行技能内置的 `scripts/audit_pdf.py` 执行页数、页面尺寸、矢量层、条款/数值/结构引用差集与敷衍词全面扫描，并用 `--compare-png` 生成并排对比图；
 >    - 渲染生成 1:1 并排对比图（PNG），**必须在对话中直接展示关键页面对比效果供用户审阅确认**，在获得用户明确许可前严禁擅自 Git Commit 或推送！
 
 ---
@@ -98,43 +98,61 @@ for i, page in enumerate(doc):
   }
   .content-area {
     flex: 1;
-    overflow: hidden;
+    overflow: hidden; /* 渲染探针会递归检测所有裁切容器，被裁掉的内容同样报错 */
   }
   ```
+  > 统一约定：`@page { margin: 0 }`，每个 `.page` 恰好等于一张物理纸张（宽高 = 原件 `page.rect`），页边距一律写在 `.page` 的 `padding` 中。不要同时使用 `@page margin` 与 `.page` 固定高度，否则极易多出空白页。
 - **插图 1:1 物理尺寸渲染**：严格按照第一步测量的 `w` 和 `h` 设定图片的 `width` 与 `height`（如 `width: 218.9pt; height: 322.4pt;`），绝对禁止用经验值限制！
 - **几何线条还原**：依据探测出的线条坐标绘制精确线宽与长度（如标题框 4pt 顶线 + 1pt 底线、143.5pt 短横脚注线）；
 - **中文垂直基线对齐**：通过段落间距和舒适行高（1.35~1.45）合理分布垂直空间，使各区块垂直起点与原件基线严格对齐；
-- **字体标准**：默认使用标准专业矢量字体（英文 Times New Roman，中文 SimSun / Songti SC），确保学术严肃性与无乱码渲染。
+- **字体标准**：默认使用标准专业矢量字体（英文 Times New Roman，中文 SimSun / Songti SC / Noto Serif CJK SC），确保学术严肃性与无乱码渲染。
 
 ### 第四步：内置引擎渲染与 JS 溢出探针 (Vector Rendering with Overflow Probe)
-调用技能内置渲染脚本直接生成纯矢量 PDF，内置 JavaScript 探针会自动检测是否有任何页面产生高度溢出：
-```powershell
-python "e:\antigravity_workspace\univ\.agent\skills\pdf-translate\scripts\render_pdf.py" "path/to/full_doc.html" "path/to/output_full.pdf"
+调用技能内置渲染脚本直接生成纯矢量 PDF（以下路径均相对于本 SKILL 所在目录）：
+```bash
+python scripts/render_pdf.py "path/to/full_doc.html" "path/to/output_full.pdf" --strict-overflow
 ```
+- 探针会递归检测每个 `.page` 及其内部所有 `overflow: hidden/clip/auto/scroll` 容器的纵向与横向溢出；
+- 渲染后校验 PDF 实际页数 = `.page` 容器数量，防止多出空白页；
+- `--strict-overflow` 下任何溢出均不写出 PDF 并以退出码 2 结束；浏览器默认先用 Edge，不可用时自动回退到 Playwright 自带 Chromium（可用 `--browser` 指定）。
 
 ### 第五步：自动化对比审计与视觉并排质检 (Automated Audit & Visual Review)
 生成 PDF 后，**必须运行技能内置的 `audit_pdf.py` 自动化对比工具并生成对比图**：
-```powershell
-python "e:\antigravity_workspace\univ\.agent\skills\pdf-translate\scripts\audit_pdf.py" --src "path/to/source.pdf" --tgt "path/to/output_full.pdf"
+```bash
+python scripts/audit_pdf.py --src "path/to/source.pdf" --tgt "path/to/output_full.pdf" \
+    --json audit_report.json --compare-png compare_png/
 ```
 
-该工具全自动执行 4 大流水线：
-1. **页码 1:1 校验**：源文件与目标文件总页数必须完全一致；
-2. **纯矢量文字层与关键图片检验**：保留的矢量图片数量完全对应；
-3. **条款与关键实体逐页双向 Diff**：自动扫描每一页的条款编号、表名图名，捕获漏项；
-4. **AI 幻觉与敷衍词雷达**：自动拦截“技术规范编制综述”、“核对清单”、“暂缺”、“此处略”等常见大模型逃避或捏造词汇。
+该工具逐页执行以下检查（`--strict` 时所有 WARNING 也判为失败）：
+
+| 检查项 | 级别 |
+| :--- | :--- |
+| 总页数 1:1 一致 | CRITICAL |
+| 逐页页面尺寸一致（默认容差 2pt，防止 Letter 被渲染成 A4） | CRITICAL |
+| 译文出现整页位图（扫描件伪装） | CRITICAL |
+| 译文出现 U+FFFD 乱码字符（字体缺字） | CRITICAL |
+| 敷衍/捏造词（如“因篇幅省略”“详见英文原版”“核对清单”）出现在译文但原文没有 | CRITICAL |
+| 条款编号缺失（2.1 / 2.1.1 …） | WARNING |
+| 跨语言结构引用缺失（Section/Appendix/Table/Figure ↔ 第N部分/附录/表/图） | WARNING |
+| 数值缺失或被改动（金额、年限、产能门槛，自动归一千分位） | WARNING |
+| 逐页图片数量 / 尺寸（>5%）不一致 | WARNING |
+| 原文有内容而译文页面近乎空白 | WARNING |
+| 译文存在未嵌入字体 | WARNING |
+
+- 敷衍词表位于 `scripts/keywords.json`，可用 `--keywords` 替换；
+- 对年份、标准号等合法差异，可用 `--ignore "<正则>"` 排除，例如 `--ignore "^(19|20)\d\d$"`；
+- `--compare-png DIR [--pages 1,3,5-7]` 输出原件|译件左右并排 PNG，供下方视觉门禁使用。
 
 **用户视觉确认门禁 (User Confirmation Gate)**：
-- 渲染原件与译件 1:1 并排对比图（PNG），在会话中直接展示重点页面（如封面、架构图页、复杂表格页）；
+- 使用 `--compare-png` 生成的 1:1 并排对比图，在会话中直接展示重点页面（如封面、架构图页、复杂表格页）；
 - 向用户汇报质检结果与对齐细节，**必须等待用户明确确认满意后，方可执行 Git 提交或任务交付**！
 
 ---
 
 ## 核心脚本工具箱 (Built-in Scripts)
 
-- **PDF 渲染引擎（含 JS 页面溢出自检）**：
-  [`.agent/skills/pdf-translate/scripts/render_pdf.py`](file:///e:/antigravity_workspace/univ/.agent/skills/pdf-translate/scripts/render_pdf.py)
-  - 底层基于 Microsoft Edge / Chromium 矢量打印，毫秒级检测 `.page` 物理高度，避免跨页溢出。
-- **PDF 1:1 自动化对比审计引擎**：
-  [`.agent/skills/pdf-translate/scripts/audit_pdf.py`](file:///e:/antigravity_workspace/univ/.agent/skills/pdf-translate/scripts/audit_pdf.py)
-  - 逐页 1:1 扫描源文件与目标文件，深度校验页码对齐、纯矢量层、条款 Diff、数值一致性与反脑补关键字拦截。
+- **PDF 渲染引擎（含 JS 页面溢出自检）**：[`scripts/render_pdf.py`](scripts/render_pdf.py)
+  - 底层基于 Microsoft Edge / Chromium 矢量打印，递归检测 `.page` 及嵌套裁切容器溢出，并校验 PDF 页数。
+- **PDF 1:1 自动化对比审计引擎**：[`scripts/audit_pdf.py`](scripts/audit_pdf.py)
+  - 逐页 1:1 扫描源文件与目标文件：页数、页面尺寸、纯矢量层、图片、字体、条款 Diff、结构引用、数值一致性、敷衍词拦截，并可输出并排对比 PNG。
+- **敷衍/捏造词表**：[`scripts/keywords.json`](scripts/keywords.json)

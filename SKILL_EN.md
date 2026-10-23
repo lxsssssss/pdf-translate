@@ -1,7 +1,7 @@
 ---
 name: pdf-translate
 description: "Use when translating PDF documents between languages while strictly preserving original layout, formatting, typography, tables, and signatures. Powered by LLM direct comprehension, two-stage data-contract translation, chunked modular generation, in-browser JS overflow detection, and high-fidelity vector PDF reconstruction. Features zero-hallucination guardrails and automated 1:1 page-by-page audit script (audit_pdf.py)."
-version: 2.3.0
+version: 2.4.0
 author: Antigravity
 ---
 
@@ -25,7 +25,7 @@ Use this Skill when the user needs to **translate PDF documents** with strict re
 >    - **Decouple data from layout**: For long documents, extract structured page data (clause trees, parameter dictionaries, table rows/columns) before injecting into standardized HTML templates. Never generate freeform long-form text while concurrently writing markup.
 >    - **Single batch must not exceed 10 pages**: Documents exceeding 10 pages must be split into modular units of 10 pages each (e.g., `part1_pages.py`, `part2_pages.py`) to prevent LLM attention degradation and hallucinations in later sections.
 > 4. **Mandatory Automated Audit & User Preview Gate Before Commit**:
->    - Once the PDF is rendered, **it must never be delivered directly to the user**. The built-in `scripts/audit_pdf.py` must be executed to perform comprehensive checks on page count, vector layers, clause symmetric diffs, and hallucination keywords.
+>    - Once the PDF is rendered, **it must never be delivered directly to the user**. The built-in `scripts/audit_pdf.py` must be executed to perform comprehensive checks on page count, page size, vector layers, clause/number/reference diffs, and placeholder phrases, with `--compare-png` for side-by-side images.
 >    - Side-by-side comparison images (PNG) **must be rendered and displayed directly in the chat for user review and inspection**. Never execute Git commit or push until the user explicitly confirms satisfaction!
 
 ---
@@ -98,43 +98,61 @@ Use modern HTML5 + CSS `@page` print styles for 1:1 page mapping:
   }
   .content-area {
     flex: 1;
-    overflow: hidden;
+    overflow: hidden; /* the render probe checks nested clipping boxes too */
   }
   ```
+  > Unified convention: `@page { margin: 0 }` and each `.page` equals exactly one physical sheet (width/height = source `page.rect`); put page margins in `.page` `padding`. Never combine `@page` margins with a fixed `.page` height, which easily produces extra blank pages.
 - **1:1 Image Dimensions**: Explicitly set image `width` and `height` based on Step 1 measurements (e.g., `width: 218.9pt; height: 322.4pt;`), never guessing with empirical clamps.
 - **Geometric Rule Reconstruction**: Reproduce exact stroke widths and lengths (e.g., title 4pt top rule + 1pt bottom rule, 143.5pt short footnote divider).
 - **Chinese Baseline Compensation**: Distribute vertical space harmoniously using comfortable line-heights (`1.35~1.45`) and paragraph margins matching original section origins.
-- **Typography Standards**: Use publication-grade serif fonts (Times New Roman for English, SimSun / Songti SC for Chinese), ensuring mathematical clarity and zero garbled glyphs.
+- **Typography Standards**: Use publication-grade serif fonts (Times New Roman for English, SimSun / Songti SC / Noto Serif CJK SC for Chinese), ensuring mathematical clarity and zero garbled glyphs.
 
 ### Step 4: Headless Vector Rendering & JS Height Overflow Probe
-Execute the built-in Playwright rendering script to generate the publication-grade vector PDF. An injected JavaScript probe automatically verifies whether any page exceeds its bounding box:
-```powershell
-python "scripts/render_pdf.py" "path/to/full_doc.html" "path/to/output_full.pdf"
+Execute the built-in Playwright rendering script (paths are relative to this SKILL directory):
+```bash
+python scripts/render_pdf.py "path/to/full_doc.html" "path/to/output_full.pdf" --strict-overflow
 ```
+- The probe recursively checks every `.page` and every nested `overflow: hidden/clip/auto/scroll` box, both vertically and horizontally;
+- After printing, the PDF page count must equal the number of `.page` containers (catches spill-over blank pages);
+- With `--strict-overflow`, any overflow aborts without writing the PDF (exit code 2). Edge is tried first, falling back to Playwright's bundled Chromium (override with `--browser`).
 
 ### Step 5: Automated Audit & Visual Review Gate
-After generating the PDF, **the built-in `audit_pdf.py` script must be executed**:
-```powershell
-python "scripts/audit_pdf.py" --src "path/to/source.pdf" --tgt "path/to/output_full.pdf"
+After generating the PDF, **the built-in `audit_pdf.py` script must be executed and comparison images produced**:
+```bash
+python scripts/audit_pdf.py --src "path/to/source.pdf" --tgt "path/to/output_full.pdf" \
+    --json audit_report.json --compare-png compare_png/
 ```
 
-The audit tool executes four automated pipelines:
-1. **1:1 Page Count Verification**: Source and target document page counts must match exactly.
-2. **Pure Vector Layer Check**: Preserved vector asset count matches source exactly.
-3. **Clause & Entity Symmetric Diff**: Scans clause IDs, table names, and figure titles page-by-page, flagging omissions.
-4. **AI Hallucination & Evasion Keyword Radar**: Automatically blocks phrases like "Technical Summary", "Checklist", "TBD", "Omitted due to space", "Refer to English original", etc.
+Page-by-page checks (`--strict` turns every WARNING into a failure):
+
+| Check | Severity |
+| :--- | :--- |
+| Total page count matches 1:1 | CRITICAL |
+| Page size per page matches (default 2pt tolerance; catches Letter rendered as A4) | CRITICAL |
+| Full-page raster image in target (fake scan) | CRITICAL |
+| U+FFFD replacement characters (missing glyphs) | CRITICAL |
+| Placeholder / fabrication phrases present in target but not in source | CRITICAL |
+| Missing clause numbers (2.1 / 2.1.1 ...) | WARNING |
+| Missing cross-language structural refs (Section/Appendix/Table/Figure ↔ 第N部分/附录/表/图) | WARNING |
+| Missing or altered numbers (amounts, years, thresholds; thousands separators normalised) | WARNING |
+| Per-page image count / size (>5%) mismatch | WARNING |
+| Near-blank target page where source has text | WARNING |
+| Non-embedded fonts in target | WARNING |
+
+- The phrase list lives in `scripts/keywords.json` (override with `--keywords`);
+- Exclude legitimate differences (years, standard numbers) with `--ignore "<regex>"`, e.g. `--ignore "^(19|20)\d\d$"`;
+- `--compare-png DIR [--pages 1,3,5-7]` writes side-by-side source|target PNGs for the review gate below.
 
 **User Visual Review Gate**:
-- Render 1:1 side-by-side comparison images (PNG) and present key pages (cover, architecture diagrams, complex tables) directly in the conversation.
+- Present key pages (cover, architecture diagrams, complex tables) from the `--compare-png` output directly in the conversation.
 - Report audit results and alignment metrics. **Always wait for explicit user confirmation before committing to Git or concluding the task**!
 
 ---
 
 ## Built-in Scripts
 
-- **Vector PDF Rendering Engine (with JS Page Overflow Probe)**:
-  [`scripts/render_pdf.py`](scripts/render_pdf.py)
-  - Leverages Chromium / Edge headless vector print engine to measure `.page` physical heights in milliseconds, preventing multi-page overflow.
-- **PDF 1:1 Automated Audit Engine**:
-  [`scripts/audit_pdf.py`](scripts/audit_pdf.py)
-  - Page-by-page 1:1 inspection comparing source and target PDFs across page alignment, vector integrity, clause diffs, numerical accuracy, and anti-hallucination radar.
+- **Vector PDF Rendering Engine (with JS Page Overflow Probe)**: [`scripts/render_pdf.py`](scripts/render_pdf.py)
+  - Chromium / Edge headless vector printing; recursive overflow probe over `.page` and nested clipping boxes, plus PDF page-count verification.
+- **PDF 1:1 Automated Audit Engine**: [`scripts/audit_pdf.py`](scripts/audit_pdf.py)
+  - Page count, page size, vector integrity, images, fonts, clause diff, structural refs, numeric diff, placeholder radar, and side-by-side comparison PNGs.
+- **Placeholder / fabrication phrase list**: [`scripts/keywords.json`](scripts/keywords.json)

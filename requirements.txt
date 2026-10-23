@@ -1,2 +1,2 @@
-﻿pymupdf>=1.23.0
-playwright>=1.40.0
+pymupdf>=1.23.0,<2
+playwright>=1.40.0,<2

@@ -1,0 +1,34 @@
+{
+  "_comment": "Placeholder / evasion phrases an LLM tends to emit instead of translating. A phrase is only flagged when it appears in the TARGET page but NOT in the corresponding SOURCE page, so legitimate occurrences (e.g. 'TBD' in a source table) are not false positives. Extend freely; pass a custom file via --keywords.",
+  "placeholders": [
+    "暂缺",
+    "待补充",
+    "待确认",
+    "此处略",
+    "此处省略",
+    "以下略",
+    "因篇幅省略",
+    "篇幅所限",
+    "详见原文",
+    "详见英文原版",
+    "内容同原文",
+    "（略）",
+    "(略)",
+    "[略]",
+    "同上",
+    "TBD",
+    "TODO",
+    "Lorem ipsum",
+    "[Translation omitted]",
+    "[Omitted]",
+    "omitted for brevity",
+    "see original"
+  ],
+  "fabrications": [
+    "技术规范编制综述",
+    "综述与准则",
+    "核对清单 (Checklist)",
+    "资质申报审查核对清单",
+    "文件装订、密封与递交程序规范"
+  ]
+}

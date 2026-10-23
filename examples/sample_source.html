@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Sample Source Prequalification Document (English Original)</title>
+  <style>
+    /* Unified convention: @page margin 0, each .page is exactly one physical sheet */
+    @page {
+      size: 210mm 297mm;
+      margin: 0;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: "Times New Roman", "SimSun", "Songti SC", "Noto Serif CJK SC", "Microsoft YaHei", serif;
+      color: #111;
+      background: #fff;
+    }
+    .page {
+      page-break-after: always;
+      width: 210mm;
+      height: 297mm;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      padding: 17mm 20mm;
+    }
+    .header-box {
+      width: 100%;
+      border: 1.2px solid #000;
+      display: flex;
+      margin-bottom: 20px;
+    }
+    .header-col {
+      flex: 1;
+      padding: 8px 12px;
+      font-size: 11px;
+      line-height: 1.5;
+    }
+    .header-col.left {
+      border-right: 1.2px solid #000;
+    }
+    .header-col.right {
+      text-align: right;
+    }
+    .doc-title {
+      text-align: center;
+      font-size: 20px;
+      font-weight: bold;
+      margin: 25px 0 15px;
+      letter-spacing: 1px;
+    }
+    .doc-subtitle {
+      text-align: center;
+      font-size: 14px;
+      color: #444;
+      margin-bottom: 30px;
+    }
+    .table-container {
+      width: 100%;
+      margin: 15px 0;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+    th, td {
+      border: 1px solid #000;
+      padding: 8px 10px;
+      text-align: left;
+    }
+    th {
+      background-color: #f5f5f5;
+      font-weight: bold;
+    }
+    .clause-item {
+      font-size: 12px;
+      line-height: 1.8;
+      margin-bottom: 12px;
+    }
+    .clause-title {
+      font-weight: bold;
+    }
+    .footer-bar {
+      margin-top: auto;
+      display: flex;
+      justify-content: space-between;
+      font-size: 10px;
+      border-top: 1px solid #ccc;
+      padding-top: 5px;
+    }
+  </style>
+</head>
+<body>
+  <!-- Source (original English) document used by quick_demo.py; sample_doc.html is its translation. -->
+  <div class="page">
+    <div class="header-box">
+      <div class="header-col left">
+        <strong>Ministry of Water &amp; Infrastructure</strong><br>
+        Tender Qualification Bureau<br>
+        Standard Technical Specification
+      </div>
+      <div class="header-col right">
+        <strong>Prequalification Document</strong><br>
+        Volume 1<br>
+        Technical Requirements
+      </div>
+    </div>
+
+    <div class="doc-title">Section 1: General Requirements</div>
+    <div class="doc-subtitle">Project Reference No: MWI-2026-TQ-001</div>
+
+    <div class="clause-item">
+      <span class="clause-title">1.1 Manufacturer Qualification Criteria</span><br>
+      All international manufacturers participating in this tender shall hold accredited ISO 9001 quality management and ISO 14001 environmental management certifications. The total annual production capacity shall be not less than 150,000 metric tonnes.
+    </div>
+
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 12%;">Clause</th>
+            <th style="width: 38%;">Parameter</th>
+            <th style="width: 25%;">Standard</th>
+            <th style="width: 25%;">Audit Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>1.1.1</td><td>Ductile iron pipe nominal diameter (DN 80 - DN 2600)</td><td>ISO 2531 / EN 545</td><td>Compliant</td></tr>
+          <tr><td>1.1.2</td><td>Tensile Strength</td><td>&ge; 420 MPa</td><td>Compliant</td></tr>
+          <tr><td>1.1.3</td><td>Mortar Lining thickness</td><td>Double-thickness sulphate-resistant cement</td><td>Compliant</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="clause-item">
+      <span class="clause-title">1.2 Endorsement &amp; Undertaking</span><br>
+      The tenderer hereby confirms that all technical parameters and test data stated above are true and valid, and accepts all legal obligations.
+    </div>
+
+    <div class="footer-bar">
+      <span>Date: February 2026</span>
+      <span>Page 1 of 1</span>
+      <span>Tenderer Initials &amp; Stamp: _______________</span>
+    </div>
+  </div>
+</body>
+</html>

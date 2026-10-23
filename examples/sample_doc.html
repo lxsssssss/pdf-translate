@@ -1,12 +1,13 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
   <title>Sample Bilingual Prequalification Document</title>
   <style>
+    /* Unified convention: @page margin 0, each .page is exactly one physical sheet */
     @page {
-      size: A4 portrait;
-      margin: 12mm 15mm 12mm 15mm;
+      size: 210mm 297mm;
+      margin: 0;
     }
     * {
       box-sizing: border-box;
@@ -14,19 +15,19 @@
       padding: 0;
     }
     body {
-      font-family: "SimSun", "Songti SC", "Microsoft YaHei", "Times New Roman", serif;
+      font-family: "Times New Roman", "SimSun", "Songti SC", "Noto Serif CJK SC", "Microsoft YaHei", serif;
       color: #111;
       background: #fff;
     }
     .page {
       page-break-after: always;
-      height: 270mm;
-      max-height: 270mm;
+      width: 210mm;
+      height: 297mm;
       position: relative;
       display: flex;
       flex-direction: column;
       overflow: hidden;
-      padding: 5mm;
+      padding: 17mm 20mm;
     }
     .header-box {
       width: 100%;

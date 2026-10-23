@@ -9,7 +9,7 @@
 
 [![CI](https://github.com/lxsssssss/pdf-translate/actions/workflows/ci.yml/badge.svg)](https://github.com/lxsssssss/pdf-translate/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/)
+[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/)
 [![Playwright](https://img.shields.io/badge/Playwright-Vector%20PDF-green.svg)](https://playwright.dev/)
 [![PyMuPDF](https://img.shields.io/badge/PyMuPDF-Audit%20Engine-orange.svg)](https://pymupdf.readthedocs.io/)
 
@@ -62,10 +62,11 @@ Traditional document translation tools (such as general machine translation or c
 - 🖨️ **Publication-Grade Vector PDF Generation**
   - Powered by headless Chromium / Edge, generating crystal-clear, selectable, searchable, and fully vector output.
 - 🔍 **Automated 1:1 Audit Engine (`scripts/audit_pdf.py`)**
-  - **Page Count Verification**: Source and target document page count must match 1:1.
-  - **Pure Vector Check**: Zero full-page raster scans or fake screenshot layers allowed.
-  - **Bidirectional Clause Diff**: Compares clause numbers page-by-page, detecting missing or hallucinated extra clauses.
-  - **Hallucination Radar**: Automatically intercepts filler terms like "TBD", "Checklist", "Omitted due to length", etc.
+  - **Page Count & Size Verification**: Page count must match 1:1 and every page size must match (catches Letter rendered as A4).
+  - **Vector, Image & Font Checks**: No full-page raster scans; per-page image count/size; non-embedded fonts and U+FFFD glyphs.
+  - **Clause / Reference / Number Diff**: Sub-clause numbers, cross-language Section/Appendix/Table/Figure refs, and key numbers (amounts, years).
+  - **Source-Aware Placeholder Radar**: Flags filler like "TBD", "Omitted due to length" only when absent from the source.
+  - **Side-by-Side PNGs**: `--compare-png` renders source|target comparison images.
 
 ---
 
@@ -95,16 +96,20 @@ pdf-translate/
 ├── SKILL.md                 # Antigravity / AI Agent Core Skill Specification (Chinese)
 ├── SKILL_EN.md              # Antigravity / AI Agent Core Skill Specification (English)
 ├── requirements.txt         # Core Python dependencies (PyMuPDF, Playwright)
+├── requirements-dev.txt     # Dev / test dependencies (pytest)
 ├── LICENSE                  # MIT License
 ├── README.md                # Chinese Documentation
 ├── README_EN.md             # English Documentation
 ├── assets/                  # 1:1 Real-world comparison showcases
 ├── examples/                # Quick start demo and sample templates
-│   ├── sample_doc.html      # Ready-to-render bilingual A4 sample layout
-│   └── quick_demo.py        # One-click E2E render & audit demo script
-└── scripts/
-    ├── audit_pdf.py         # 1:1 Structural & clause diff automated audit engine
-    └── render_pdf.py        # Playwright vector PDF renderer with JS overflow probe
+│   ├── sample_source.html   # English source sample (audit --src)
+│   ├── sample_doc.html      # Its Chinese translation (audit --tgt, unified A4 page convention)
+│   └── quick_demo.py        # One-click E2E: render source + translation → audit → comparison PNG
+├── scripts/
+│   ├── audit_pdf.py         # Page-by-page audit: count/size/vector/images/fonts/clauses/refs/numbers/placeholders + PNG
+│   ├── keywords.json        # Extensible placeholder / fabrication phrase list
+│   └── render_pdf.py        # Playwright renderer (recursive overflow probe + PDF page-count check + browser fallback)
+└── tests/                   # pytest: extractor unit tests, defective-translation integration tests, render probe tests
 ```
 
 ---
@@ -123,18 +128,26 @@ playwright install chromium
 
 ### 2. Run the One-Click Demo
 
-Run the built-in demo script to render a sample document and run the audit engine:
+Run the built-in demo: it renders an English source and its Chinese translation, audits the translation against the source, and writes a JSON report plus side-by-side PNGs to `examples/output/`:
 
 ```bash
 python examples/quick_demo.py
 ```
 
-Output:
+Output (abridged):
 ```text
-  ✔ PASS: All .page containers satisfy physical bounds (zero overflow detected).
+  ✔ PASS: All 1 .page containers (incl. nested clipping boxes) satisfy physical bounds.
+  ✔ PASS: PDF page count (1) matches .page containers.
   ✔ PASS: Page count matches exactly (1 pages).
-  ✔ PASS: 100% pure vector text layer.
->>> AUDIT PASSED: Translation meets publication-grade fidelity standards! <<<
+  Page 01: [✔ PASS   ]
+>>> AUDIT PASSED <<<
+```
+
+Run the test suite:
+
+```bash
+pip install -r requirements-dev.txt
+python -m pytest
 ```
 
 ---
@@ -165,7 +178,13 @@ python scripts/audit_pdf.py --src original.pdf --tgt translated.pdf
 python scripts/audit_pdf.py --src original.pdf --tgt translated.pdf --strict
 
 # Output structured JSON audit report
-python scripts/audit_pdf.py --src original.pdf --tgt translated.pdf --json-out audit_report.json
+python scripts/audit_pdf.py --src original.pdf --tgt translated.pdf --json audit_report.json
+
+# Side-by-side comparison PNGs (optionally --pages 1,3,5-7)
+python scripts/audit_pdf.py --src original.pdf --tgt translated.pdf --compare-png compare_png/
+
+# Ignore legitimate differences (e.g. years) or use a custom phrase list
+python scripts/audit_pdf.py --src original.pdf --tgt translated.pdf --ignore "^(19|20)\d\d$" --keywords my_keywords.json
 ```
 
 ---
@@ -202,9 +221,9 @@ your-project/
 Prompt: *"Translate this bidding document to Chinese, strictly preserving original layout and outputting as vector PDF."*
 
 #### 2. Claude Code
-Register `SKILL_EN.md` directly into your Claude project rules or custom tools:
+Clone this repository into a project-level `.claude/skills/pdf-translate/` (or user-level `~/.claude/skills/pdf-translate/`); Claude Code discovers the `SKILL.md` automatically:
 ```bash
-claude config add-skill pdf-translate ./SKILL_EN.md
+git clone https://github.com/lxsssssss/pdf-translate.git .claude/skills/pdf-translate
 ```
 
 #### 3. Cursor & Windsurf

@@ -4,8 +4,23 @@ Universal Automated PDF Translation Audit and Diff Engine
 Skill: pdf-translate
 Script: audit_pdf.py
 
-Performs page-by-page 1:1 structural, numerical, and textual audit between
+Performs a page-by-page 1:1 structural, numerical and textual audit between
 the source PDF and the translated vector PDF.
+
+Checks (severity in brackets; --strict promotes every WARNING to a failure):
+  1. Page count                                   [CRITICAL]
+  2. Page size per page (default tolerance 2pt)   [CRITICAL]
+  3. Full-page raster scans in target             [CRITICAL]
+  4. U+FFFD replacement chars (broken glyphs)     [CRITICAL]
+  5. Placeholder / fabrication phrases that appear in target but not in source  [CRITICAL]
+  6. Missing clause numbers (2.1, 2.1.1, ...)     [WARNING]
+  7. Missing structural refs (Section/Appendix/Table/Figure <-> 第N部分/附录/表/图) [WARNING]
+  8. Missing numeric values (amounts, years, thresholds)  [WARNING]
+  9. Image count / size mismatch per page         [WARNING]
+ 10. Blank target page where source has text      [WARNING]
+ 11. Non-embedded fonts in target                 [WARNING]
+
+Optional: --compare-png DIR renders side-by-side source|target PNGs for visual review.
 """
 
 import sys
@@ -13,6 +28,7 @@ import os
 import re
 import json
 import argparse
+from decimal import Decimal, InvalidOperation
 
 if sys.platform == "win32":
     sys.stdout.reconfigure(encoding="utf-8")
@@ -23,203 +39,433 @@ except ImportError:
     print("Error: PyMuPDF (fitz) is required. Install via `pip install pymupdf`")
     sys.exit(1)
 
-# Common AI hallucination / placeholder trigger words
-HALLUCINATION_KEYWORDS = [
-    "技术规范编制综述",
-    "综述与准则",
-    "核对清单 (Checklist)",
-    "资质申报审查核对清单",
-    "文件装订、密封与递交程序规范",
-    "暂缺",
-    "待补充",
-    "待确认",
-    "此处略",
-    "因篇幅省略",
-    "同上",
-    "详见英文原版",
-    "TBD",
-    "TODO",
-]
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+DEFAULT_KEYWORDS_FILE = os.path.join(SCRIPT_DIR, "keywords.json")
 
-CLAUSE_REGEX = re.compile(
-    r'(?:Section\s*(?:\(\s*\d+\s*\)|\d+)|'
-    r'第\s*(?:\(\s*\d+\s*\)|\d+)\s*部分|'
-    r'Appendix\s*[-–—]?\s*\d+|'
-    r'附录\s*[-–—]?\s*[一二三四五六七八九十\d]+|'
-    r'Table\s*[-–—\.]?\s*[A-Za-z0-9]+|'
-    r'表\s*[-–—\.]?\s*[A-Za-z0-9\u4e00-\u9fa5]+|'
-    r'(?<!\w)\d+\.\d+(?:\.\d+)*(?!\w))',
-    re.IGNORECASE
-)
+CRITICAL = "CRITICAL"
+WARNING = "WARNING"
 
-def normalize_clause(clause: str) -> str:
-    c = clause.strip().lower()
-    c = re.sub(r'\s+', '', c)
-    return c
+# --------------------------------------------------------------------------- #
+# Keyword loading
+# --------------------------------------------------------------------------- #
+
+_FALLBACK_KEYWORDS = ["暂缺", "待补充", "此处略", "因篇幅省略", "详见英文原版", "TBD", "TODO"]
+
+
+def load_keywords(path: str = None):
+    path = path or DEFAULT_KEYWORDS_FILE
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except (OSError, ValueError):
+        return list(_FALLBACK_KEYWORDS)
+    words = []
+    for key, val in data.items():
+        if not key.startswith("_") and isinstance(val, list):
+            words.extend(str(v) for v in val if str(v).strip())
+    return words or list(_FALLBACK_KEYWORDS)
+
+
+# --------------------------------------------------------------------------- #
+# Clause numbers (2.1 / 2.1.1 / (3.2) ...)
+# --------------------------------------------------------------------------- #
+
+# first component 1-3 digits, following components 1-2 digits without leading zero
+_CLAUSE_CORE = r"\d{1,3}(?:\.[1-9]\d?)+"
+# multi-level (>= 3 components) anywhere in text
+_CLAUSE_MULTI_RE = re.compile(r"(?<![\d.])(\d{1,3}(?:\.[1-9]\d?){2,})(?![\d]|\.\d)")
+# two-level only when it starts a line (heading / list item / table first cell)
+_CLAUSE_HEAD_RE = re.compile(r"^\s*[\(（]?(" + _CLAUSE_CORE + r")[\)）]?\.?(?=\s|$|[^\d.])", re.MULTILINE)
+
 
 def extract_clauses(text: str):
-    matches = CLAUSE_REGEX.findall(text)
+    """Return ordered unique clause numbers such as '2.1', '2.1.1'."""
+    found = []
     seen = set()
-    res = []
-    for m in matches:
-        norm = normalize_clause(m)
-        if norm not in seen:
-            seen.add(norm)
-            res.append(m.strip())
-    return res
+    for regex in (_CLAUSE_HEAD_RE, _CLAUSE_MULTI_RE):
+        for m in regex.finditer(text):
+            c = m.group(1).rstrip(".")
+            if c not in seen:
+                seen.add(c)
+                found.append(c)
+    return found
 
-def audit_document(src_path: str, tgt_path: str, strict: bool = False, json_out: str = None):
-    print("=" * 70)
-    print("  PDF-TRANSLATE AUTOMATED AUDIT ENGINE")
-    print(f"  Source:     {src_path}")
-    print(f"  Target:     {tgt_path}")
-    print("=" * 70)
 
-    if not os.path.exists(src_path):
-        print(f"[FATAL] Source PDF not found: {src_path}")
-        return False
-    if not os.path.exists(tgt_path):
-        print(f"[FATAL] Target PDF not found: {tgt_path}")
-        return False
+# --------------------------------------------------------------------------- #
+# Structural references, normalised across languages
+# --------------------------------------------------------------------------- #
 
-    doc_src = fitz.open(src_path)
-    doc_tgt = fitz.open(tgt_path)
+_CN_DIGITS = {"零": 0, "〇": 0, "一": 1, "二": 2, "两": 2, "三": 3, "四": 4,
+              "五": 5, "六": 6, "七": 7, "八": 8, "九": 9}
 
-    total_src = len(doc_src)
-    total_tgt = len(doc_tgt)
+
+def cn_to_int(s: str):
+    """Convert simple Chinese numerals (一 .. 九十九) to int; return None if not parseable."""
+    if not s:
+        return None
+    if s.isdigit():
+        return int(s)
+    if "十" in s:
+        left, _, right = s.partition("十")
+        tens = _CN_DIGITS.get(left, None) if left else 1
+        ones = _CN_DIGITS.get(right, None) if right else 0
+        if tens is None or ones is None:
+            return None
+        return tens * 10 + ones
+    if all(ch in _CN_DIGITS for ch in s):
+        return int("".join(str(_CN_DIGITS[ch]) for ch in s))
+    return None
+
+
+def _norm_ref_id(raw: str):
+    raw = raw.strip().strip("()（）")
+    n = cn_to_int(raw)
+    if n is not None:
+        return str(n)
+    if len(raw) == 1 and raw.isalpha():
+        return raw.upper()
+    return None
+
+
+_SEP = r"\s*[-–—.:：]?\s*"
+_ID = r"[\(（]?\s*(\d{1,3}|[A-Za-z](?![A-Za-z])|[一二三四五六七八九十]{1,3})\s*[\)）]?"
+_REF_PATTERNS = [
+    ("sec", re.compile(r"\b(?:section|chapter|part)" + _SEP + _ID, re.IGNORECASE)),
+    ("sec", re.compile(r"第\s*(\d{1,3}|[一二三四五六七八九十]{1,3})\s*(?:部分|章|节)")),
+    ("app", re.compile(r"\b(?:appendix|annex(?:ure)?)" + _SEP + _ID, re.IGNORECASE)),
+    ("app", re.compile(r"(?:附录|附件|附表)" + _SEP + _ID)),
+    ("tab", re.compile(r"\b(?:table|tab\.)" + _SEP + r"(\d{1,3}|[A-Z](?![A-Za-z]))", re.IGNORECASE)),
+    ("tab", re.compile(r"表" + _SEP + r"(\d{1,3}|[A-Z](?![A-Za-z]))")),
+    ("fig", re.compile(r"\b(?:figure|fig\.)" + _SEP + r"(\d{1,3})", re.IGNORECASE)),
+    ("fig", re.compile(r"图" + _SEP + r"(\d{1,3})")),
+]
+
+
+def extract_refs(text: str):
+    """Return set of canonical structural references, e.g. {'sec:1', 'app:3', 'tab:2'}."""
+    refs = set()
+    for kind, regex in _REF_PATTERNS:
+        for m in regex.finditer(text):
+            rid = _norm_ref_id(m.group(1))
+            if rid is not None:
+                refs.add(f"{kind}:{rid}")
+    return refs
+
+
+# --------------------------------------------------------------------------- #
+# Numeric values
+# --------------------------------------------------------------------------- #
+
+_CLAUSE_TOKEN_RE = re.compile(r"(?<![\d.])\d+(?:\.\d+){2,}(?![\d])")
+_NUM_RE = re.compile(
+    r"(?<![A-Za-z0-9_.,])"
+    r"(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)"
+    r"(?![0-9]|[.,]\d)"
+)
+
+
+def _normalise_number(tok: str):
+    tok = tok.replace(",", "")
+    try:
+        d = Decimal(tok)
+    except InvalidOperation:
+        return None
+    s = format(d.normalize(), "f")
+    return s
+
+
+def extract_numbers(text: str, min_digits: int = 2):
+    """Return set of normalised numbers with at least `min_digits` digits (or any decimal)."""
+    text = _CLAUSE_TOKEN_RE.sub(" ", text)
+    nums = set()
+    for m in _NUM_RE.finditer(text):
+        tok = m.group(1)
+        digits = sum(ch.isdigit() for ch in tok)
+        if digits < min_digits and "." not in tok:
+            continue
+        n = _normalise_number(tok)
+        if n is not None:
+            nums.add(n)
+    return nums
+
+
+# --------------------------------------------------------------------------- #
+# Page helpers
+# --------------------------------------------------------------------------- #
+
+def _image_rects(page):
+    rects = []
+    for img in page.get_images(full=True):
+        try:
+            rects.extend(page.get_image_rects(img[0]))
+        except Exception:  # pragma: no cover - defensive against odd PDFs
+            pass
+    return rects
+
+
+def _is_full_page(rect, page):
+    return rect.width > page.rect.width * 0.85 and rect.height > page.rect.height * 0.85
+
+
+def _non_embedded_fonts(page):
+    bad = set()
+    for f in page.get_fonts(full=True):
+        # (xref, ext, type, basefont, name, encoding, referencer)
+        ext, ftype, basefont = f[1], f[2], f[3]
+        if ext == "n/a" and ftype != "Type3":
+            bad.add(basefont or f[4])
+    return sorted(bad)
+
+
+def _apply_ignore(items, ignore_re):
+    if not ignore_re:
+        return list(items)
+    return [i for i in items if not ignore_re.search(i)]
+
+
+# --------------------------------------------------------------------------- #
+# Side-by-side comparison PNG
+# --------------------------------------------------------------------------- #
+
+def render_comparison_pngs(doc_src, doc_tgt, out_dir: str, dpi: int = 110, pages=None):
+    os.makedirs(out_dir, exist_ok=True)
+    n = min(len(doc_src), len(doc_tgt))
+    targets = pages if pages else range(1, n + 1)
+    written = []
+    gap = 24
+    for pno in targets:
+        if not 1 <= pno <= n:
+            continue
+        sp, tp = doc_src[pno - 1], doc_tgt[pno - 1]
+        w1, h1, w2, h2 = sp.rect.width, sp.rect.height, tp.rect.width, tp.rect.height
+        out = fitz.open()
+        canvas = out.new_page(width=w1 + gap + w2, height=max(h1, h2))
+        canvas.draw_rect(canvas.rect, color=None, fill=(1, 1, 1))
+        canvas.show_pdf_page(fitz.Rect(0, 0, w1, h1), doc_src, pno - 1)
+        canvas.show_pdf_page(fitz.Rect(w1 + gap, 0, w1 + gap + w2, h2), doc_tgt, pno - 1)
+        x = w1 + gap / 2
+        canvas.draw_line((x, 0), (x, canvas.rect.height), color=(0.8, 0, 0), width=1)
+        path = os.path.join(out_dir, f"compare_page_{pno:03d}.png")
+        canvas.get_pixmap(dpi=dpi).save(path)
+        out.close()
+        written.append(path)
+    return written
+
+
+def parse_pages(spec: str):
+    """'1,3,5-7' -> [1,3,5,6,7]"""
+    if not spec:
+        return None
+    pages = []
+    for part in spec.split(","):
+        part = part.strip()
+        if "-" in part:
+            a, b = part.split("-", 1)
+            pages.extend(range(int(a), int(b) + 1))
+        elif part:
+            pages.append(int(part))
+    return pages
+
+
+# --------------------------------------------------------------------------- #
+# Main audit
+# --------------------------------------------------------------------------- #
+
+def audit_document(src_path: str, tgt_path: str, strict: bool = False, json_out: str = None,
+                   keywords_file: str = None, size_tol: float = 2.0, ignore: str = None,
+                   check_numbers: bool = True, compare_png: str = None, compare_pages: str = None,
+                   dpi: int = 110, quiet: bool = False):
+    """Run the audit. Returns (passed: bool, report: dict)."""
+    log = (lambda *a, **k: None) if quiet else print
+    ignore_re = re.compile(ignore) if ignore else None
+    keywords = load_keywords(keywords_file)
+
+    log("=" * 70)
+    log("  PDF-TRANSLATE AUTOMATED AUDIT ENGINE")
+    log(f"  Source:     {src_path}")
+    log(f"  Target:     {tgt_path}")
+    log("=" * 70)
+
+    for label, p in (("Source", src_path), ("Target", tgt_path)):
+        if not os.path.exists(p):
+            log(f"[FATAL] {label} PDF not found: {p}")
+            return False, {"fatal": f"{label} PDF not found: {p}"}
 
     report = {
         "summary": {
-            "source_pages": total_src,
-            "target_pages": total_tgt,
-            "pages_matched": total_src == total_tgt,
-            "total_raster_images": 0,
-            "critical_errors": 0,
-            "warnings": 0,
+            "source_pages": 0, "target_pages": 0, "pages_matched": False,
+            "source_images": 0, "target_images": 0,
+            "critical_errors": 0, "warnings": 0, "strict": strict,
         },
-        "pages": []
+        "document_issues": [],
+        "pages": [],
     }
+    S = report["summary"]
 
-    print(f"\n[1/4] PAGE COUNT CHECK:")
-    if total_src == total_tgt:
-        print(f"  ✔ PASS: Page count matches exactly ({total_src} pages).")
-    else:
-        print(f"  ✖ FAIL: Page count mismatch! Source={total_src}, Target={total_tgt}")
-        report["summary"]["critical_errors"] += 1
+    def doc_issue(sev, msg):
+        report["document_issues"].append({"severity": sev, "message": msg})
+        S["critical_errors" if sev == CRITICAL else "warnings"] += 1
 
-    print(f"\n[2/4] VECTOR TEXT & ASSET INTEGRITY CHECK (Target PDF):")
-    total_src_images = sum(len(page.get_images()) for page in doc_src)
-    total_tgt_images = sum(len(page.get_images()) for page in doc_tgt)
-    report["summary"]["total_raster_images"] = total_tgt_images
+    with fitz.open(src_path) as doc_src, fitz.open(tgt_path) as doc_tgt:
+        n_src, n_tgt = len(doc_src), len(doc_tgt)
+        S.update(source_pages=n_src, target_pages=n_tgt, pages_matched=(n_src == n_tgt))
 
-    # Check for full-page raster scans (fake OCR / full-page screenshots)
-    full_page_scans = 0
-    for pno, page in enumerate(doc_tgt):
-        for img in page.get_images():
-            rects = page.get_image_rects(img[0])
-            for r in rects:
-                if r.width > page.rect.width * 0.85 and r.height > page.rect.height * 0.85:
-                    full_page_scans += 1
+        # ---- [1] page count -------------------------------------------------
+        log("\n[1/4] PAGE COUNT CHECK:")
+        if n_src == n_tgt:
+            log(f"  ✔ PASS: Page count matches exactly ({n_src} pages).")
+        else:
+            log(f"  ✖ FAIL: Page count mismatch! Source={n_src}, Target={n_tgt}")
+            doc_issue(CRITICAL, f"Page count mismatch: source={n_src}, target={n_tgt}")
 
-    if full_page_scans > 0:
-        print(f"  ✖ FAIL: Found {full_page_scans} full-page raster scans! Target must be vector layout.")
-        report["summary"]["critical_errors"] += 1
-    elif total_tgt_images > 0:
-        print(f"  ✔ PASS: Vector layout with {total_tgt_images} preserved asset images (Source has {total_src_images}).")
-    else:
-        print(f"  ✔ PASS: 100% pure vector text layer.")
+        # ---- [2] asset integrity -------------------------------------------
+        log("\n[2/4] VECTOR TEXT & ASSET INTEGRITY CHECK (Target PDF):")
+        S["source_images"] = sum(len(_image_rects(p)) for p in doc_src)
+        S["target_images"] = sum(len(_image_rects(p)) for p in doc_tgt)
+        log(f"  Images placed: source={S['source_images']}, target={S['target_images']}")
+        if S["source_images"] != S["target_images"]:
+            log("  ▲ WARNING: Total image count differs (see per-page details).")
 
-    print(f"\n[3/4] PAGE-BY-PAGE 1:1 DEEP AUDIT:")
-    max_pages = max(total_src, total_tgt)
+        # ---- [3] per page ---------------------------------------------------
+        log("\n[3/4] PAGE-BY-PAGE 1:1 DEEP AUDIT:")
+        for idx in range(max(n_src, n_tgt)):
+            info = {"page_num": idx + 1, "status": "PASS", "issues": []}
 
-    for pno in range(max_pages):
-        page_info = {
-            "page_num": pno + 1,
-            "status": "PASS",
-            "issues": []
-        }
+            def add(sev, msg, _info=info):
+                _info["issues"].append({"severity": sev, "message": msg})
+                S["critical_errors" if sev == CRITICAL else "warnings"] += 1
 
-        if pno >= total_src:
-            page_info["status"] = "FAIL"
-            page_info["issues"].append("Extra page beyond source document")
-            report["summary"]["critical_errors"] += 1
-            report["pages"].append(page_info)
-            continue
+            if idx >= n_src:
+                add(CRITICAL, "Extra page beyond source document")
+            elif idx >= n_tgt:
+                add(CRITICAL, "Missing page present in source document")
+            else:
+                sp, tp = doc_src[idx], doc_tgt[idx]
+                src_text = sp.get_text().strip()
+                tgt_text = tp.get_text().strip()
 
-        if pno >= total_tgt:
-            page_info["status"] = "FAIL"
-            page_info["issues"].append("Missing page present in source document")
-            report["summary"]["critical_errors"] += 1
-            report["pages"].append(page_info)
-            continue
+                # page size
+                dw, dh = abs(sp.rect.width - tp.rect.width), abs(sp.rect.height - tp.rect.height)
+                if dw > size_tol or dh > size_tol:
+                    add(CRITICAL, f"Page size mismatch: source {sp.rect.width:.1f}x{sp.rect.height:.1f}pt, "
+                                  f"target {tp.rect.width:.1f}x{tp.rect.height:.1f}pt")
 
-        src_page = doc_src[pno]
-        tgt_page = doc_tgt[pno]
+                # images
+                s_imgs, t_imgs = _image_rects(sp), _image_rects(tp)
+                src_full = any(_is_full_page(r, sp) for r in s_imgs)
+                t_full = [r for r in t_imgs if _is_full_page(r, tp)]
+                if t_full and not src_full:
+                    add(CRITICAL, f"{len(t_full)} full-page raster image(s): target must be vector text, not a scan")
+                if len(s_imgs) != len(t_imgs):
+                    add(WARNING, f"Image count differs: source={len(s_imgs)}, target={len(t_imgs)}")
+                else:
+                    key = lambda r: (round(r.y0), round(r.x0))
+                    for a, b in zip(sorted(s_imgs, key=key), sorted(t_imgs, key=key)):
+                        if a.width > 0 and a.height > 0 and (
+                                abs(a.width - b.width) / a.width > 0.05 or abs(a.height - b.height) / a.height > 0.05):
+                            add(WARNING, f"Image size differs >5%: source {a.width:.1f}x{a.height:.1f}pt, "
+                                         f"target {b.width:.1f}x{b.height:.1f}pt")
 
-        src_text = src_page.get_text().strip()
-        tgt_text = tgt_page.get_text().strip()
+                # blank page
+                if len(tgt_text) < 20 <= len(src_text):
+                    add(WARNING, f"Suspiciously blank target page ({len(tgt_text)} chars, source {len(src_text)})")
 
-        # Check for empty / suspicious blank page
-        if len(tgt_text) < 20:
-            page_info["issues"].append("Suspiciously blank target page (< 20 chars)")
-            page_info["status"] = "WARNING"
-            report["summary"]["warnings"] += 1
+                # broken glyphs
+                if "\ufffd" in tgt_text:
+                    add(CRITICAL, f"{tgt_text.count(chr(0xFFFD))} U+FFFD replacement char(s): missing glyphs / font issue")
 
-        # Check for AI hallucination keywords
-        found_hallucinations = [kw for kw in HALLUCINATION_KEYWORDS if kw in tgt_text]
-        if found_hallucinations:
-            for h in found_hallucinations:
-                msg = f"Hallucination keyword detected: '{h}'"
-                page_info["issues"].append(msg)
-            page_info["status"] = "FAIL"
-            report["summary"]["critical_errors"] += 1
+                # fonts
+                bad_fonts = _non_embedded_fonts(tp)
+                if bad_fonts:
+                    add(WARNING, f"Non-embedded font(s): {bad_fonts}")
 
-        # Check clauses
-        src_clauses = extract_clauses(src_text)
-        tgt_clauses = extract_clauses(tgt_text)
+                # placeholders / fabrications (source-aware)
+                for kw in keywords:
+                    if kw in tgt_text and kw not in src_text:
+                        add(CRITICAL, f"Placeholder/fabrication phrase not present in source: '{kw}'")
 
-        src_norm = {normalize_clause(c): c for c in src_clauses}
-        tgt_norm = {normalize_clause(c): c for c in tgt_clauses}
+                # clauses
+                tgt_clauses = set(extract_clauses(tgt_text))
+                missing = [c for c in extract_clauses(src_text) if c not in tgt_clauses]
+                missing = _apply_ignore(missing, ignore_re)
+                if missing:
+                    add(WARNING, f"Missing clause numbers: {missing}")
 
-        missing_clauses = [src_norm[k] for k in src_norm if k not in tgt_norm and re.search(r'\d+\.\d+', k)]
-        missing_clauses = [c for c in missing_clauses if not any(ign in c for ign in ["2026", "2531", "1998", "2009", "2010", "2016"])]
+                # structural refs
+                missing_refs = sorted(extract_refs(src_text) - extract_refs(tgt_text))
+                missing_refs = _apply_ignore(missing_refs, ignore_re)
+                if missing_refs:
+                    add(WARNING, f"Missing structural refs: {missing_refs}")
 
-        if missing_clauses:
-            page_info["issues"].append(f"Missing clauses in target: {missing_clauses}")
-            if strict:
-                page_info["status"] = "WARNING"
-            report["summary"]["warnings"] += 1
+                # numbers
+                if check_numbers:
+                    missing_nums = sorted(extract_numbers(src_text) - extract_numbers(tgt_text),
+                                          key=lambda x: (len(x), x))
+                    missing_nums = _apply_ignore(missing_nums, ignore_re)
+                    if missing_nums:
+                        add(WARNING, f"Numbers in source not found in target: {missing_nums}")
 
-        report["pages"].append(page_info)
+            sevs = {i["severity"] for i in info["issues"]}
+            info["status"] = "FAIL" if CRITICAL in sevs else ("WARNING" if WARNING in sevs else "PASS")
+            if strict and info["status"] == "WARNING":
+                info["status"] = "FAIL"
+            report["pages"].append(info)
 
-        issue_str = f" ({'; '.join(page_info['issues'])})" if page_info["issues"] else ""
-        icon = "✔" if page_info["status"] == "PASS" else ("▲" if page_info["status"] == "WARNING" else "✖")
-        print(f"  Page {pno+1:02d}: [{icon} {page_info['status']:7s}]{issue_str}")
+            icon = {"PASS": "✔", "WARNING": "▲", "FAIL": "✖"}[info["status"]]
+            log(f"  Page {idx + 1:02d}: [{icon} {info['status']:7s}]")
+            for it in info["issues"]:
+                log(f"      - [{it['severity']}] {it['message']}")
 
-    print(f"\n[4/4] AUDIT SUMMARY:")
-    print(f"  Total Critical Errors: {report['summary']['critical_errors']}")
-    print(f"  Total Warnings:        {report['summary']['warnings']}")
+        # ---- optional comparison PNGs --------------------------------------
+        if compare_png:
+            paths = render_comparison_pngs(doc_src, doc_tgt, compare_png, dpi=dpi, pages=parse_pages(compare_pages))
+            report["comparison_pngs"] = paths
+            log(f"\n  Side-by-side comparison PNGs ({len(paths)}) written to: {os.path.abspath(compare_png)}")
+
+    # ---- [4] summary ---------------------------------------------------------
+    log("\n[4/4] AUDIT SUMMARY:")
+    log(f"  Total Critical Errors: {S['critical_errors']}")
+    log(f"  Total Warnings:        {S['warnings']}" + ("  (strict: warnings count as failures)" if strict else ""))
+
+    passed = S["critical_errors"] == 0 and (not strict or S["warnings"] == 0)
+    S["passed"] = passed
 
     if json_out:
+        os.makedirs(os.path.dirname(os.path.abspath(json_out)), exist_ok=True)
         with open(json_out, "w", encoding="utf-8") as f:
             json.dump(report, f, ensure_ascii=False, indent=2)
-        print(f"  Report exported to:    {json_out}")
+        log(f"  Report exported to:    {json_out}")
 
-    all_passed = (report["summary"]["critical_errors"] == 0)
-    if all_passed:
-        print("\n>>> AUDIT PASSED: Translation meets publication-grade fidelity standards! <<<")
+    if passed:
+        log("\n>>> AUDIT PASSED <<<" + ("" if S["warnings"] == 0 else "  (review warnings above)"))
     else:
-        print("\n>>> AUDIT FAILED: Please review and fix critical issues above! <<<")
+        log("\n>>> AUDIT FAILED: Please review and fix the issues above! <<<")
+    return passed, report
 
-    return all_passed
 
-if __name__ == "__main__":
+def main(argv=None):
     parser = argparse.ArgumentParser(description="Audit PDF translation quality and page-by-page alignment.")
     parser.add_argument("--src", required=True, help="Path to original source PDF")
     parser.add_argument("--tgt", required=True, help="Path to translated target PDF")
-    parser.add_argument("--strict", action="store_true", help="Treat missing subclause warnings as critical")
-    parser.add_argument("--json", default=None, help="Optional output path for JSON audit report")
+    parser.add_argument("--strict", action="store_true", help="Treat every WARNING as a failure (non-zero exit)")
+    parser.add_argument("--json", "--json-out", dest="json", default=None,
+                        help="Optional output path for JSON audit report")
+    parser.add_argument("--keywords", default=None, help="Custom placeholder keyword JSON (default: scripts/keywords.json)")
+    parser.add_argument("--size-tol", type=float, default=2.0, help="Page size tolerance in pt (default: 2)")
+    parser.add_argument("--ignore", default=None,
+                        help="Regex; clause numbers / refs / numbers matching it are not reported (e.g. '^(19|20)\\d\\d$')")
+    parser.add_argument("--no-numbers", action="store_true", help="Disable numeric value diff")
+    parser.add_argument("--compare-png", default=None, metavar="DIR", help="Write side-by-side source|target PNGs to DIR")
+    parser.add_argument("--pages", default=None, help="Pages for --compare-png, e.g. '1,3,5-7' (default: all)")
+    parser.add_argument("--dpi", type=int, default=110, help="DPI for --compare-png (default: 110)")
+    args = parser.parse_args(argv)
 
-    args = parser.parse_args()
-    success = audit_document(args.src, args.tgt, strict=args.strict, json_out=args.json)
-    sys.exit(0 if success else 1)
+    passed, _ = audit_document(args.src, args.tgt, strict=args.strict, json_out=args.json,
+                               keywords_file=args.keywords, size_tol=args.size_tol, ignore=args.ignore,
+                               check_numbers=not args.no_numbers, compare_png=args.compare_png,
+                               compare_pages=args.pages, dpi=args.dpi)
+    return 0 if passed else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

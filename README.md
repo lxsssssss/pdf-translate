@@ -9,7 +9,7 @@
 
 [![CI](https://github.com/lxsssssss/pdf-translate/actions/workflows/ci.yml/badge.svg)](https://github.com/lxsssssss/pdf-translate/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/)
+[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/)
 [![Playwright](https://img.shields.io/badge/Playwright-Vector%20PDF-green.svg)](https://playwright.dev/)
 [![PyMuPDF](https://img.shields.io/badge/PyMuPDF-Audit%20Engine-orange.svg)](https://pymupdf.readthedocs.io/)
 
@@ -62,10 +62,11 @@
 - 🖨️ **纯矢量无损 PDF 重构 (Publication-Grade Vector PDF)**
   - 基于 Chromium / Edge 内核，输出全矢量、可选中、可搜索、超高清的工业级 PDF。
 - 🔍 **自动化对比审计引擎 (`scripts/audit_pdf.py`)**
-  - **页数匹配校验**：源文件与目标文件总页数严格 1:1。
-  - **纯矢量层校验**：杜绝整页截图/位图伪装。
-  - **条款编号逐页双向 Diff**：自动比对章节编号与子条款差集。
-  - **敏感词与占位符扫描**：自动拦截 “待补充”、“因篇幅省略”、“详见英文原版” 等 AI 偷懒占位符。
+  - **页数与页面尺寸校验**：总页数严格 1:1，逐页尺寸一致（防止 Letter 被渲染成 A4）。
+  - **纯矢量层、图片与字体校验**：杜绝整页截图伪装，逐页比对图片数量/尺寸，检测未嵌入字体与乱码字符。
+  - **条款 / 结构引用 / 数值逐页 Diff**：比对子条款编号、跨语言的 Section/附录/表/图引用，以及金额、年限等关键数字。
+  - **敷衍词扫描（参照原文）**：拦截“待补充”、“因篇幅省略”、“详见英文原版”等占位符，原文本身就有的词不误报。
+  - **并排对比图**：`--compare-png` 一键生成原件|译件左右对照 PNG。
 
 ---
 
@@ -95,16 +96,20 @@ pdf-translate/
 ├── SKILL.md                 # Antigravity / AI Agent 核心技能指令与约束规范 (中文版)
 ├── SKILL_EN.md              # Core Skill Definition & Zero-Hallucination SOP (English Version)
 ├── requirements.txt         # 核心 Python 依赖项
+├── requirements-dev.txt     # 开发/测试依赖 (pytest)
 ├── LICENSE                  # MIT 开源协议
 ├── README.md                # 简体中文说明文档
 ├── README_EN.md             # English Documentation
 ├── assets/                  # 官方公文 1:1 真实案例对比图
 ├── examples/                # 开箱即测示例与一键体验脚本
-│   ├── sample_doc.html      # 包含双语公文表头、表格与签章的标准 A4 测试模板
-│   └── quick_demo.py        # 一键端到端「Playwright 渲染 + 自动化审计」测试脚本
-└── scripts/
-    ├── audit_pdf.py         # 1:1 页对页结构、条款双向 Diff 与敏感词自动化审计引擎
-    └── render_pdf.py        # 基于 Playwright 的高保真矢量 PDF 渲染脚本 (内置 JS 溢出探针)
+│   ├── sample_source.html   # 英文原件示例（审计的 --src）
+│   ├── sample_doc.html      # 对应的中文译件示例（审计的 --tgt，A4 统一页面约定）
+│   └── quick_demo.py        # 一键端到端「渲染原件+译件 → 审计 → 并排对比图」脚本
+├── scripts/
+│   ├── audit_pdf.py         # 逐页审计：页数/尺寸/矢量层/图片/字体/条款/结构引用/数值/敷衍词 + 对比图
+│   ├── keywords.json        # 可扩展的敷衍/捏造词表
+│   └── render_pdf.py        # Playwright 矢量渲染（递归溢出探针 + PDF 页数校验 + 浏览器自动回退）
+└── tests/                   # pytest：抽取器单测 + 故意制造缺陷的译文集成测试 + 渲染探针测试
 ```
 
 ---
@@ -133,7 +138,14 @@ playwright install chromium
 python examples/quick_demo.py
 ```
 
-终端将依次执行：调用 Playwright 渲染矢量 PDF ➔ 触发 JS 页面高度防溢出探针 ➔ 执行 PyMuPDF 纯矢量层与条款一致性审计 ➔ 输出绿标 PASS 报告！
+终端将依次执行：渲染英文原件与中文译件 ➔ 递归溢出探针与页数校验 ➔ 以原件为基准逐页审计译件 ➔ 在 `examples/output/` 输出 JSON 报告与并排对比图！
+
+运行测试：
+
+```bash
+pip install -r requirements-dev.txt
+python -m pytest
+```
 
 ---
 
@@ -147,8 +159,11 @@ python examples/quick_demo.py
 # 基础渲染
 python scripts/render_pdf.py input.html output.pdf
 
-# 开启严格模式 (若检测到任何页面高度溢出则立即抛出异常阻断)
+# 开启严格模式 (任何溢出或页数不符则不写出 PDF，退出码 2)
 python scripts/render_pdf.py input.html output.pdf --strict-overflow
+
+# 指定浏览器 (默认 auto：优先 Edge，失败回退 Playwright 自带 Chromium)
+python scripts/render_pdf.py input.html output.pdf --browser chromium
 ```
 
 #### 🔹 自动化 1:1 对比审计 (`audit_pdf.py`)
@@ -163,7 +178,13 @@ python scripts/audit_pdf.py --src original.pdf --tgt translated.pdf
 python scripts/audit_pdf.py --src original.pdf --tgt translated.pdf --strict
 
 # 输出结构化 JSON 审计报告 (便于 CI/CD 或 Agent 自动化解析)
-python scripts/audit_pdf.py --src original.pdf --tgt translated.pdf --json-out audit_report.json
+python scripts/audit_pdf.py --src original.pdf --tgt translated.pdf --json audit_report.json
+
+# 生成原件|译件并排对比图 (可用 --pages 1,3,5-7 指定页)
+python scripts/audit_pdf.py --src original.pdf --tgt translated.pdf --compare-png compare_png/
+
+# 忽略合法差异 (如年份)，或使用自定义敷衍词表
+python scripts/audit_pdf.py --src original.pdf --tgt translated.pdf --ignore "^(19|20)\d\d$" --keywords my_keywords.json
 ```
 
 ---
@@ -200,9 +221,9 @@ your-project/
 在会话中提示 **“帮我把这份文件翻译为中文，保持原排版并输出为 PDF”**，Agent 将自动激活该 Skill 并执行闭环工作流。
 
 #### 2. Claude Code
-将 `SKILL_EN.md` 导入 Claude 项目自定义指令或配置为专属技能：
+将本项目拷贝到项目级 `.claude/skills/pdf-translate/`（或用户级 `~/.claude/skills/pdf-translate/`），Claude Code 会自动识别其中的 `SKILL.md`：
 ```bash
-claude config add-skill pdf-translate ./SKILL_EN.md
+git clone https://github.com/lxsssssss/pdf-translate.git .claude/skills/pdf-translate
 ```
 
 #### 3. Cursor & Windsurf

@@ -1,12 +1,16 @@
 # -*- coding: utf-8 -*-
 """
 Quick Demo Script for PDF-Translate Skill
-Demonstrates rendering an HTML layout to vector PDF and running the audit engine.
+
+End-to-end demo on a real source -> translation pair:
+  1. Render the English original  (examples/sample_source.html) to PDF
+  2. Render the Chinese translation (examples/sample_doc.html)   to PDF with --strict-overflow
+  3. Audit translation against the source and write side-by-side comparison PNGs
 """
 
 import os
-import sys
 import subprocess
+import sys
 
 if sys.platform == "win32":
     sys.stdout.reconfigure(encoding="utf-8")
@@ -16,35 +20,41 @@ PROJECT_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, ".."))
 RENDER_SCRIPT = os.path.join(PROJECT_ROOT, "scripts", "render_pdf.py")
 AUDIT_SCRIPT = os.path.join(PROJECT_ROOT, "scripts", "audit_pdf.py")
 
-SAMPLE_HTML = os.path.join(SCRIPT_DIR, "sample_doc.html")
-OUTPUT_PDF = os.path.join(SCRIPT_DIR, "output_demo.pdf")
+SOURCE_HTML = os.path.join(SCRIPT_DIR, "sample_source.html")
+TARGET_HTML = os.path.join(SCRIPT_DIR, "sample_doc.html")
+OUT_DIR = os.path.join(SCRIPT_DIR, "output")
+SOURCE_PDF = os.path.join(OUT_DIR, "source_demo.pdf")
+TARGET_PDF = os.path.join(OUT_DIR, "output_demo.pdf")
+COMPARE_DIR = os.path.join(OUT_DIR, "compare_png")
+
+
+def run(cmd, label):
+    print(f"\n{label}")
+    ret = subprocess.run(cmd)
+    if ret.returncode != 0:
+        print(f"[FAIL] {label.strip()} (exit {ret.returncode})")
+        sys.exit(ret.returncode)
+
 
 def main():
     print("=" * 60)
-    print("  🚀 PDF-Translate Quick Start Demo")
+    print("  📄 PDF-Translate Quick Start Demo")
     print("=" * 60)
 
-    # Step 1: Render HTML to Vector PDF
-    print("\n[Step 1/2] Rendering HTML template to vector PDF via Playwright...")
-    render_cmd = [sys.executable, RENDER_SCRIPT, SAMPLE_HTML, OUTPUT_PDF, "--strict-overflow"]
-    ret = subprocess.run(render_cmd)
-    if ret.returncode != 0:
-        print("[FAIL] Render step failed. Please ensure playwright is installed (`playwright install chromium`).")
-        sys.exit(1)
+    run([sys.executable, RENDER_SCRIPT, SOURCE_HTML, SOURCE_PDF],
+        "[Step 1/3] Rendering source (English original) to vector PDF...")
+    run([sys.executable, RENDER_SCRIPT, TARGET_HTML, TARGET_PDF, "--strict-overflow"],
+        "[Step 2/3] Rendering translation to vector PDF (strict overflow probe)...")
+    run([sys.executable, AUDIT_SCRIPT, "--src", SOURCE_PDF, "--tgt", TARGET_PDF,
+         "--json", os.path.join(OUT_DIR, "audit_report.json"), "--compare-png", COMPARE_DIR],
+        "[Step 3/3] Auditing translation against source...")
 
-    # Step 2: Audit the generated PDF
-    print("\n[Step 2/2] Running automated audit engine on the rendered PDF...")
-    audit_cmd = [sys.executable, AUDIT_SCRIPT, "--src", OUTPUT_PDF, "--tgt", OUTPUT_PDF]
-    ret = subprocess.run(audit_cmd)
+    print("\n" + "=" * 60)
+    print("  ✅ DEMO SUCCESSFUL!")
+    print(f"  Translated PDF:   {TARGET_PDF}")
+    print(f"  Comparison PNGs:  {COMPARE_DIR}")
+    print("=" * 60)
 
-    if ret.returncode == 0:
-        print("\n" + "=" * 60)
-        print("  🎉 DEMO SUCCESSFUL!")
-        print(f"  Vector PDF generated at: {OUTPUT_PDF}")
-        print("=" * 60)
-    else:
-        print("[FAIL] Audit step failed.")
-        sys.exit(ret.returncode)
 
 if __name__ == "__main__":
     main()
